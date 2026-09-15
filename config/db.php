@@ -3,17 +3,17 @@
 //  config/db.php
 //  UPDATE: Menambahkan fungsi role helper dan konsistensi session
 // ============================================================
-define('DB_HOST',     'localhost');
-define('DB_USER',     'root');
-define('DB_PASS',     '');
-define('DB_NAME',     'labmineral');
-define('APP_NAME',    'LabMineral Pro');
+define('DB_HOST',     getenv('DB_HOST') ?: 'localhost');
+define('DB_USER',     getenv('DB_USER') ?: 'root');
+define('DB_PASS',     getenv('DB_PASS') !== false ? getenv('DB_PASS') : '');
+define('DB_NAME',     getenv('DB_NAME') ?: 'labmineral');
+define('APP_NAME',    getenv('APP_NAME') ?: 'LabMineral Pro');
 define('APP_VERSION', '2.0.0');
 
 // Turunkan base URL dari folder project agar asset tetap terbaca meski nama folder berubah.
 $projectRoot = realpath(dirname(__DIR__));
 $documentRoot = isset($_SERVER['DOCUMENT_ROOT']) ? realpath($_SERVER['DOCUMENT_ROOT']) : false;
-$baseUrl = '/labmineral-main';
+$baseUrl = '';
 
 if ($projectRoot && $documentRoot) {
     $projectRoot = str_replace('\\', '/', $projectRoot);
@@ -23,6 +23,11 @@ if ($projectRoot && $documentRoot) {
         $relativePath = trim(substr($projectRoot, strlen($documentRoot)), '/');
         $baseUrl = $relativePath === '' ? '' : '/' . $relativePath;
     }
+}
+
+// Override BASE_URL jika di-set di environment variable
+if (getenv('BASE_URL') !== false && getenv('BASE_URL') !== '') {
+    $baseUrl = rtrim(getenv('BASE_URL'), '/');
 }
 
 define('BASE_URL', $baseUrl);

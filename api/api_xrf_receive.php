@@ -18,7 +18,7 @@ ini_set('display_errors', 0);
 define('CONNECTION_TEST_ONLY', false);
 
 // Secret API Key (must match the API Key configured in Android App)
-define('XRF_SECRET_KEY', 'xrf_secret_labmineral_2026');
+define('XRF_SECRET_KEY', getenv('XRF_SECRET_KEY') ?: 'xrf_secret_labmineral_2026');
 
 // File path to store recent connection logs for dashboard display
 define('LOG_FILE_PATH', __DIR__ . '/xrf_connection_log.json');
@@ -136,10 +136,10 @@ if (CONNECTION_TEST_ONLY) {
 // =================================================================
 //  MODE 2: DATABASE SAVING ENABLED (MySQL)
 // =================================================================
-$db_host = 'localhost';
-$db_name = 'labmineral';
-$db_user = 'root';
-$db_pass = '';
+$db_host = getenv('DB_HOST') ?: 'localhost';
+$db_name = getenv('DB_NAME') ?: 'labmineral';
+$db_user = getenv('DB_USER') ?: 'root';
+$db_pass = getenv('DB_PASS') !== false ? getenv('DB_PASS') : '';
 
 if (file_exists(__DIR__ . '/../config/db.php')) {
     require_once __DIR__ . '/../config/db.php';
