@@ -8,6 +8,7 @@
 session_start();
 require_once __DIR__ . '/../config/db.php';
 cekLogin();
+ensureWorkOrderSchema($pdo);
 
 $action = $_POST['action'] ?? '';
 
@@ -302,7 +303,7 @@ switch ($action) {
                          . 'Pastikan fix_work_order_batch.sql sudah dijalankan di phpMyAdmin.';
     } else {
         error_log('[simpan_work_order] PDOException ' . $errCode . ': ' . $errMsg);
-        $_SESSION['msg'] = 'ERROR: Kesalahan database. Hubungi administrator. [Kode: ' . $errCode . ']';
+        $_SESSION['msg'] = 'ERROR: Kesalahan database: ' . htmlspecialchars($errMsg) . ' [Kode: ' . $errCode . ']';
     }
 
     header('Location: ' . BASE_URL . '/pages/work_order.php?tab=buat');

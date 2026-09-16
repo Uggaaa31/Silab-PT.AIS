@@ -15,7 +15,7 @@ if (!canAccessQC()) {
 }
 
 $pageTitle = 'QC & Validasi';
-$isEditable = isAnalis(); // Hanya analis yang bisa edit
+$isEditable = canEditQC(); // Analis, Supervisor, dan Admin bisa edit/input
 $isReadOnly = !$isEditable;
 
 $msg  = $_SESSION['msg'] ?? ''; unset($_SESSION['msg']);

@@ -7,6 +7,7 @@
 session_start();
 require_once __DIR__ . '/../config/db.php';
 cekLogin();
+ensureWorkOrderSchema($pdo);
 
 // Cek akses
 if (!canAccessWorkOrder()) {

@@ -39,6 +39,21 @@ CREATE TABLE IF NOT EXISTS bahan (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- ------------------------------------------------------------
+-- 2b. LOG PENGGUNAAN BAHAN
+-- ------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS log_bahan (
+    id          INT           AUTO_INCREMENT PRIMARY KEY,
+    bahan_id    INT           NOT NULL,
+    jenis       ENUM('masuk','keluar') NOT NULL,
+    jumlah      DECIMAL(10,3) NOT NULL,
+    keterangan  TEXT,
+    pengguna_id INT,
+    created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (bahan_id)    REFERENCES bahan(id)    ON DELETE CASCADE,
+    FOREIGN KEY (pengguna_id) REFERENCES pengguna(id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ------------------------------------------------------------
 -- 3. PERALATAN
 -- ------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS peralatan (
@@ -55,6 +70,16 @@ CREATE TABLE IF NOT EXISTS peralatan (
     catatan                 TEXT,
     created_at              TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- ------------------------------------------------------------
+-- 3b. METODE PREPARASI
+-- ------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS metode_preparasi (
+    id         INT          AUTO_INCREMENT PRIMARY KEY,
+    metode     VARCHAR(255) NOT NULL UNIQUE,
+    created_at TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ------------------------------------------------------------
 -- 4. PENERIMAAN SAMPEL (BATCH)
@@ -113,6 +138,7 @@ CREATE TABLE IF NOT EXISTS work_order (
     status          ENUM('draft','aktif','selesai','dibatalkan') DEFAULT 'draft',
     selesai_at      DATETIME NULL,
     catatan         TEXT,
+    butuh_preparasi TINYINT(1) DEFAULT 0,
     dibuat_oleh     INT,
     created_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -142,7 +168,7 @@ CREATE TABLE IF NOT EXISTS preparasi_sampel (
     id                  INT AUTO_INCREMENT PRIMARY KEY,
     work_order_id       INT,
     sampel_id           INT NOT NULL,
-    metode_preparasi    ENUM('destruksi_asam','ekstraksi','pengenceran','fusion','lainnya') NOT NULL,
+    metode_preparasi    VARCHAR(100) NOT NULL DEFAULT 'destruksi_asam',
     prosedur            TEXT,
     faktor_pengenceran  DECIMAL(10,4) DEFAULT 1.0000,
     volume_awal_ml      DECIMAL(8,3),

@@ -198,7 +198,7 @@ CREATE TABLE IF NOT EXISTS preparasi_sampel (
     id                 INT          AUTO_INCREMENT PRIMARY KEY,
     work_order_id      INT,
     sampel_id          INT          NOT NULL,
-    metode_preparasi   ENUM('destruksi_asam','ekstraksi','pengenceran','fusion','lainnya') NOT NULL,
+    metode_preparasi   VARCHAR(100) NOT NULL DEFAULT 'destruksi_asam',
     prosedur           TEXT,
     faktor_pengenceran DECIMAL(10,4) DEFAULT 1.0000,
     volume_awal_ml     DECIMAL(8,3),

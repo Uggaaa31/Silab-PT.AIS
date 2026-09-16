@@ -42,6 +42,7 @@ try {
         PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
         PDO::ATTR_EMULATE_PREPARES   => false,
     ]);
+    ensureWorkOrderSchema($pdo);
 } catch (PDOException $e) {
     die("<div style='font-family:sans-serif;padding:30px;background:#3d1010;color:#e74c3c;
          border-radius:8px;margin:20px'><h2>&#9888; Koneksi Database Gagal</h2>
@@ -206,38 +207,38 @@ function canEditPengujian() {
 
 /**
  * Preparasi
- * - Admin: read only
+ * - Admin: full akses
  * - Analis: full akses
- * - Supervisor: read only
+ * - Supervisor: full akses
  */
 function canAccessPreparasi() {
     return isAdmin() || isAnalis() || isSupervisor();
 }
 
 function canEditPreparasi() {
-    return isAnalis();
+    return isAnalis() || isSupervisor() || isAdmin();
 }
 
 function canViewPreparasi() {
-    return isAdmin() || isSupervisor();
+    return isAdmin() || isSupervisor() || isAnalis();
 }
 
 /**
  * QC
- * - Admin: read only
+ * - Admin: full akses
  * - Analis: full akses
- * - Supervisor: read only
+ * - Supervisor: full akses
  */
 function canAccessQC() {
     return isAdmin() || isAnalis() || isSupervisor();
 }
 
 function canEditQC() {
-    return isAnalis();
+    return isAnalis() || isSupervisor() || isAdmin();
 }
 
 function canViewQC() {
-    return isAdmin() || isSupervisor();
+    return isAdmin() || isSupervisor() || isAnalis();
 }
 
 /**
@@ -453,6 +454,40 @@ function ensureMetodePreparasiTable($pdo) {
             updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4"
     );
+}
+
+function ensureWorkOrderSchema($pdo) {
+    if (!$pdo instanceof PDO) return;
+    try {
+        if (tableExists($pdo, 'work_order')) {
+            $check = $pdo->query("SHOW COLUMNS FROM work_order LIKE 'butuh_preparasi'")->fetch();
+            if (!$check) {
+                $pdo->exec("ALTER TABLE work_order ADD COLUMN butuh_preparasi TINYINT(1) DEFAULT 0 AFTER catatan");
+            }
+        }
+        ensureMetodePreparasiTable($pdo);
+        if (!tableExists($pdo, 'log_bahan') && tableExists($pdo, 'bahan')) {
+            $pdo->exec("CREATE TABLE IF NOT EXISTS log_bahan (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                bahan_id INT NOT NULL,
+                jenis ENUM('masuk','keluar') NOT NULL,
+                jumlah DECIMAL(10,3) NOT NULL,
+                keterangan TEXT,
+                pengguna_id INT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (bahan_id) REFERENCES bahan(id) ON DELETE CASCADE,
+                FOREIGN KEY (pengguna_id) REFERENCES pengguna(id) ON DELETE SET NULL
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+        }
+        if (tableExists($pdo, 'preparasi_sampel')) {
+            $col = $pdo->query("SHOW COLUMNS FROM preparasi_sampel LIKE 'metode_preparasi'")->fetch();
+            if ($col && strpos(strtolower($col['Type']), 'enum') !== false) {
+                $pdo->exec("ALTER TABLE preparasi_sampel MODIFY COLUMN metode_preparasi VARCHAR(100) NOT NULL DEFAULT 'destruksi_asam'");
+            }
+        }
+    } catch (Exception $e) {
+        // Silently continue
+    }
 }
 
 function clientAccessTableReady($pdo) {
