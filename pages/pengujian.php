@@ -728,9 +728,17 @@ require_once __DIR__ . '/../includes/header.php';
                 </div>
             </div>
 
+            <!-- Filter ID Alat / Device -->
+            <div class="xrf-filter-group" style="min-width:140px">
+                <label>📱 ID Alat / Device</label>
+                <select id="xrfModalDevice" class="form-control" style="padding:5px 8px;font-size:.75rem" onchange="fetchXrfModalData()">
+                    <option value="">Semua Alat (XRF04, dll)</option>
+                </select>
+            </div>
+
             <!-- Jenis / Nama Mode -->
-            <div class="xrf-filter-group" style="min-width:180px">
-                <label>🏷️ Jenis (Nama Mode / DB Source)</label>
+            <div class="xrf-filter-group" style="min-width:170px">
+                <label>🏷️ Mode / DB</label>
                 <select id="xrfModalMode" class="form-control" style="padding:5px 8px;font-size:.75rem" onchange="fetchXrfModalData()">
                     <option value="all">Semua Jenis / Mode</option>
                     <option value="mineral.db">mineral.db (Mineral &amp; Batuan)</option>
@@ -740,9 +748,9 @@ require_once __DIR__ . '/../includes/header.php';
             </div>
 
             <!-- Pencarian -->
-            <div class="xrf-filter-group" style="flex:1;min-width:180px">
-                <label>🔍 Pencarian (Sampel / Operator / Kurva / Grade)</label>
-                <input type="text" id="xrfModalSearch" class="form-control" placeholder="Ketik nama sampel, operator, grade..." style="padding:5px 8px;font-size:.75rem" onkeydown="if(event.key==='Enter'){event.preventDefault();fetchXrfModalData();}"/>
+            <div class="xrf-filter-group" style="flex:1;min-width:160px">
+                <label>🔍 Cari Sampel / ID Alat / Op / Kurva</label>
+                <input type="text" id="xrfModalSearch" class="form-control" placeholder="Ketik sampel, XRF04, grade..." style="padding:5px 8px;font-size:.75rem" onkeydown="if(event.key==='Enter'){event.preventDefault();fetchXrfModalData();}"/>
             </div>
 
             <!-- Buttons -->
@@ -763,16 +771,17 @@ require_once __DIR__ . '/../includes/header.php';
             <table class="data-table" style="font-size:.76rem" id="xrfModalTable">
                 <thead>
                     <tr>
-                        <th style="width:130px">Waktu Scan</th>
+                        <th style="width:115px">Waktu Scan</th>
+                        <th style="width:90px">ID Alat</th>
                         <th style="width:130px">Nama Sampel</th>
-                        <th style="width:100px">Mode / DB</th>
-                        <th style="width:150px">Kurva Kerja / Operator</th>
+                        <th style="width:90px">Mode / DB</th>
+                        <th style="width:140px">Kurva Kerja / Operator</th>
                         <th>Kandungan Unsur (Elements)</th>
-                        <th style="width:80px;text-align:center">Aksi</th>
+                        <th style="width:75px;text-align:center">Aksi</th>
                     </tr>
                 </thead>
                 <tbody id="xrfModalTableBody">
-                    <tr><td colspan="6" style="text-align:center;padding:24px;color:var(--text3)">Memuat data XRF...</td></tr>
+                    <tr><td colspan="7" style="text-align:center;padding:24px;color:var(--text3)">Memuat data XRF...</td></tr>
                 </tbody>
             </table>
         </div>
@@ -871,16 +880,18 @@ function closeXrfPickerModal() {
 function fetchXrfModalData() {
     const startDate = document.getElementById('xrfModalStartDate').value;
     const endDate   = document.getElementById('xrfModalEndDate').value;
+    const device    = document.getElementById('xrfModalDevice') ? document.getElementById('xrfModalDevice').value : '';
     const mode      = document.getElementById('xrfModalMode').value;
     const search    = document.getElementById('xrfModalSearch').value.trim();
     
     const tbody = document.getElementById('xrfModalTableBody');
-    tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:24px;color:var(--text3)">⏳ Memuat data XRF dari server...</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:24px;color:var(--text3)">⏳ Memuat data XRF dari server...</td></tr>`;
     document.getElementById('xrfModalCount').textContent = 'Memuat...';
 
     const params = new URLSearchParams();
     if (startDate) params.append('start_date', startDate);
     if (endDate)   params.append('end_date', endDate);
+    if (device)    params.append('device', device);
     if (mode && mode !== 'all') params.append('mode', mode);
     if (search)    params.append('search', search);
 
@@ -888,13 +899,24 @@ function fetchXrfModalData() {
         .then(res => res.json())
         .then(res => {
             if (!res.success) {
-                tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:24px;color:var(--red)">⚠️ ${res.message || 'Gagal mengambil data'}</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:24px;color:var(--red)">⚠️ ${res.message || 'Gagal mengambil data'}</td></tr>`;
                 document.getElementById('xrfModalCount').textContent = 'Gagal memuat';
                 return;
             }
 
             xrfModalDataCache = res.data || [];
             document.getElementById('xrfModalCount').textContent = `Ditemukan ${xrfModalDataCache.length} data scan XRF`;
+
+            // Dynamically populate device dropdown if returned
+            const devSelect = document.getElementById('xrfModalDevice');
+            if (devSelect && res.devices && res.devices.length > 0 && devSelect.options.length <= 1) {
+                res.devices.forEach(d => {
+                    const opt = document.createElement('option');
+                    opt.value = d;
+                    opt.textContent = `Alat: ${d}`;
+                    devSelect.appendChild(opt);
+                });
+            }
 
             // Dynamically populate mode dropdown with work curves if not yet populated
             const modeSelect = document.getElementById('xrfModalMode');
@@ -911,7 +933,7 @@ function fetchXrfModalData() {
             }
 
             if (xrfModalDataCache.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:32px;color:var(--text3)">🔍 Tidak ditemukan data scan XRF yang sesuai filter.</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:32px;color:var(--text3)">🔍 Tidak ditemukan data scan XRF yang sesuai filter.</td></tr>`;
                 return;
             }
 
@@ -936,6 +958,7 @@ function fetchXrfModalData() {
                 html += `
                 <tr>
                     <td style="color:var(--text3);font-size:.72rem;white-space:nowrap">${item.formatted_date}</td>
+                    <td style="white-space:nowrap"><span class="xrf-badge-device" style="font-size:.65rem;padding:2px 6px">📱 ${escapeHtml(item.device_id || 'XRF04')}</span></td>
                     <td>
                         <strong style="color:var(--gold);font-size:.8rem">${escapeHtml(item.sample_name)}</strong>
                         <div style="font-size:.65rem;color:var(--text3)">ID #${item.report_id || item.id}</div>
@@ -958,7 +981,7 @@ function fetchXrfModalData() {
         })
         .catch(err => {
             console.error('Error fetching XRF data:', err);
-            tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:24px;color:var(--red)">⚠️ Terjadi kesalahan jaringan saat memuat data.</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:24px;color:var(--red)">⚠️ Terjadi kesalahan jaringan saat memuat data.</td></tr>`;
             document.getElementById('xrfModalCount').textContent = 'Error';
         });
 }
@@ -966,6 +989,7 @@ function fetchXrfModalData() {
 function resetXrfModalFilter() {
     document.getElementById('xrfModalStartDate').value = '';
     document.getElementById('xrfModalEndDate').value = '';
+    if (document.getElementById('xrfModalDevice')) document.getElementById('xrfModalDevice').value = '';
     document.getElementById('xrfModalMode').value = 'all';
     document.getElementById('xrfModalSearch').value = '';
     fetchXrfModalData();

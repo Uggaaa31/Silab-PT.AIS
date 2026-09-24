@@ -49,7 +49,7 @@ if (empty($data)) {
 
 $username  = trim($data['username'] ?? '');
 $password  = trim($data['password'] ?? '');
-$device_id = trim($data['device_id'] ?? 'XRF-7000');
+$device_id = trim($data['device_id'] ?? 'XRF04');
 
 if (empty($username) || empty($password)) {
     http_response_code(400);

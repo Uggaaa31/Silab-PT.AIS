@@ -73,7 +73,7 @@ if (!empty(XRF_SECRET_KEY) && $provided_key !== XRF_SECRET_KEY) {
 }
 
 // 3. Extract Payload Metadata
-$device_id   = $data['device_id'] ?? 'XRF-7000';
+$device_id   = !empty($data['device_id']) ? trim($data['device_id']) : 'XRF04';
 $db_source   = $data['db_source'] ?? 'connection_test';
 $report_id   = intval($data['report_id'] ?? 0);
 $sample_name = trim($data['sample_name'] ?? 'PING_TEST');

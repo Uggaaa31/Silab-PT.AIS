@@ -17,6 +17,7 @@ if (empty($_SESSION['user_id'])) {
 try {
     $startDate = trim($_GET['start_date'] ?? '');
     $endDate   = trim($_GET['end_date'] ?? '');
+    $device    = trim($_GET['device'] ?? $_GET['device_id'] ?? '');
     $search    = trim($_GET['search'] ?? '');
     $mode      = trim($_GET['mode'] ?? '');
     $limit     = min(200, max(10, (int)($_GET['limit'] ?? 100)));
@@ -39,10 +40,17 @@ try {
         $params[] = $endDate;
     }
 
-    // 2. Search Filter (Sample Name, Report ID, Operator, Grade, Work Curve)
+    // 2. Device Filter
+    if ($device !== '' && $device !== 'all') {
+        $sql .= " AND device_id = ?";
+        $params[] = $device;
+    }
+
+    // 3. Search Filter (Sample Name, Report ID, Operator, Grade, Work Curve, Device ID)
     if ($search !== '') {
-        $sql .= " AND (sample_name LIKE ? OR report_id LIKE ? OR operator LIKE ? OR grade LIKE ? OR work_curve_name LIKE ?)";
+        $sql .= " AND (sample_name LIKE ? OR report_id LIKE ? OR operator LIKE ? OR grade LIKE ? OR work_curve_name LIKE ? OR device_id LIKE ?)";
         $wildcard = "%$search%";
+        $params[] = $wildcard;
         $params[] = $wildcard;
         $params[] = $wildcard;
         $params[] = $wildcard;
@@ -50,7 +58,7 @@ try {
         $params[] = $wildcard;
     }
 
-    // 3. Mode / Database Source / Work Curve Filter
+    // 4. Mode / Database Source / Work Curve Filter
     if ($mode !== '' && $mode !== 'all') {
         if (str_ends_with($mode, '.db')) {
             $sql .= " AND db_source = ?";
@@ -108,7 +116,7 @@ try {
 
             $data[] = [
                 'id'               => (int)$r['id'],
-                'device_id'        => $r['device_id'],
+                'device_id'        => !empty($r['device_id']) ? $r['device_id'] : 'XRF04',
                 'db_source'        => $r['db_source'],
                 'report_id'        => (int)$r['report_id'],
                 'sample_name'      => $r['sample_name'] ?: 'Tanpa Nama',
@@ -126,15 +134,21 @@ try {
         }
     }
 
-    // Get available modes / curves for dynamic dropdown options
+    // Get available modes / curves / devices for dynamic dropdown options
     $availableDbSources = $pdo->query("SELECT DISTINCT db_source FROM xrf_measurements WHERE db_source IS NOT NULL AND db_source != '' ORDER BY db_source")->fetchAll(PDO::FETCH_COLUMN);
-    $availableCurves = $pdo->query("SELECT DISTINCT work_curve_name FROM xrf_measurements WHERE work_curve_name IS NOT NULL AND work_curve_name != '' AND work_curve_name != '-' ORDER BY work_curve_name")->fetchAll(PDO::FETCH_COLUMN);
+    $availableCurves    = $pdo->query("SELECT DISTINCT work_curve_name FROM xrf_measurements WHERE work_curve_name IS NOT NULL AND work_curve_name != '' AND work_curve_name != '-' ORDER BY work_curve_name")->fetchAll(PDO::FETCH_COLUMN);
+    $availableDevices   = $pdo->query("SELECT DISTINCT device_id FROM xrf_measurements WHERE device_id IS NOT NULL AND device_id != '' ORDER BY device_id")->fetchAll(PDO::FETCH_COLUMN);
+
+    if (empty($availableDevices)) {
+        $availableDevices = ['XRF04', 'XRF-7000'];
+    }
 
     echo json_encode([
         'success'      => true,
         'count'        => count($data),
         'db_sources'   => $availableDbSources,
         'work_curves'  => $availableCurves,
+        'devices'      => $availableDevices,
         'data'         => $data
     ], JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
 

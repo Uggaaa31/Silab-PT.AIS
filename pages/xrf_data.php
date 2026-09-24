@@ -1,6 +1,6 @@
 <?php
 // ============================================================
-//  xrf_data.php — Data Lengkap Pengukuran XRF Explorer 7000 (Admin)
+//  xrf_data.php — Data Lengkap Pengukuran Spektrometri XRF (Admin)
 // ============================================================
 session_start();
 require_once __DIR__ . '/../config/db.php';
@@ -18,6 +18,7 @@ $msg = $_SESSION['msg'] ?? ''; unset($_SESSION['msg']);
 // ── Parameter Filter & Pagination ────────────────────────────
 $fStart  = trim($_GET['fstart'] ?? '');
 $fEnd    = trim($_GET['fend'] ?? '');
+$fDevice = trim($_GET['fdevice'] ?? '');
 $fMode   = trim($_GET['fmode'] ?? '');
 $fSearch = trim($_GET['fsearch'] ?? '');
 $page    = max(1, (int)($_GET['page'] ?? 1));
@@ -26,6 +27,7 @@ $offset  = ($page - 1) * $limit;
 
 $totalCount = 0;
 $todayCount = 0;
+$devices    = [];
 $dbSources  = [];
 $workCurves = [];
 $totalRows  = 0;
@@ -35,8 +37,13 @@ $xrfList    = [];
 try {
     $totalCount = (int)$pdo->query("SELECT COUNT(*) FROM xrf_measurements")->fetchColumn();
     $todayCount = (int)$pdo->query("SELECT COUNT(*) FROM xrf_measurements WHERE DATE(test_date) = CURDATE()")->fetchColumn();
+    $devices    = $pdo->query("SELECT DISTINCT device_id FROM xrf_measurements WHERE device_id IS NOT NULL AND device_id != '' ORDER BY device_id")->fetchAll(PDO::FETCH_COLUMN);
     $dbSources  = $pdo->query("SELECT DISTINCT db_source FROM xrf_measurements WHERE db_source IS NOT NULL AND db_source != '' ORDER BY db_source")->fetchAll(PDO::FETCH_COLUMN);
     $workCurves = $pdo->query("SELECT DISTINCT work_curve_name FROM xrf_measurements WHERE work_curve_name IS NOT NULL AND work_curve_name != '' AND work_curve_name != '-' ORDER BY work_curve_name")->fetchAll(PDO::FETCH_COLUMN);
+
+    if (empty($devices)) {
+        $devices = ['XRF04', 'XRF-7000'];
+    }
 
     $sql = "SELECT * FROM xrf_measurements WHERE 1=1";
     $prm = [];
@@ -49,6 +56,10 @@ try {
         $sql .= " AND DATE(test_date) <= ?";
         $prm[] = $fEnd;
     }
+    if ($fDevice !== '' && $fDevice !== 'all') {
+        $sql .= " AND device_id = ?";
+        $prm[] = $fDevice;
+    }
     if ($fMode !== '' && $fMode !== 'all') {
         if (str_ends_with($fMode, '.db')) {
             $sql .= " AND db_source = ?";
@@ -59,9 +70,9 @@ try {
         }
     }
     if ($fSearch !== '') {
-        $sql .= " AND (sample_name LIKE ? OR report_id LIKE ? OR operator LIKE ? OR grade LIKE ? OR work_curve_name LIKE ?)";
+        $sql .= " AND (sample_name LIKE ? OR report_id LIKE ? OR operator LIKE ? OR grade LIKE ? OR work_curve_name LIKE ? OR device_id LIKE ?)";
         $wc = "%$fSearch%";
-        $prm[] = $wc; $prm[] = $wc; $prm[] = $wc; $prm[] = $wc; $prm[] = $wc;
+        $prm[] = $wc; $prm[] = $wc; $prm[] = $wc; $prm[] = $wc; $prm[] = $wc; $prm[] = $wc;
     }
 
     $cntSql = str_replace("SELECT *", "SELECT COUNT(*)", $sql);
@@ -112,6 +123,21 @@ require_once __DIR__ . '/../includes/header.php';
 .xrf-mode-mineral { background: #064e3b; color: #6ee7b7; border: 1px solid #047857; }
 .xrf-mode-alloy   { background: #1e3a8a; color: #93c5fd; border: 1px solid #3b82f6; }
 .xrf-mode-metal   { background: #451a03; color: #fde047; border: 1px solid #d97706; }
+
+.xrf-badge-device {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: rgba(56, 189, 248, 0.12);
+    color: #38bdf8;
+    border: 1px solid rgba(56, 189, 248, 0.35);
+    padding: 2px 7px;
+    border-radius: 4px;
+    font-size: .72rem;
+    font-weight: 700;
+    font-family: monospace;
+    letter-spacing: 0.5px;
+}
 
 .xrf-element-pill {
     display: inline-block;
@@ -173,7 +199,7 @@ require_once __DIR__ . '/../includes/header.php';
 </style>
 
 <div style="margin-bottom:14px">
-    <div class="sec-title" style="margin-bottom:2px">⚡ Data Pengukuran XRF Explorer 7000</div>
+    <div class="sec-title" style="margin-bottom:2px">⚡ Data Pengukuran Spektrometri XRF</div>
     <p style="font-size:.78rem;color:var(--text3);margin:0">Database lengkap hasil scan spektrometri genggam XRF yang tersimpan di MySQL server.</p>
 </div>
 
@@ -195,15 +221,19 @@ require_once __DIR__ . '/../includes/header.php';
         <div style="font-size:1.6rem;font-weight:700;color:#34d399;margin-top:2px"><?= number_format($todayCount) ?></div>
         <div style="font-size:.68rem;color:var(--text3)"><?= date('d F Y') ?></div>
     </div>
-    <div class="card" style="padding:14px;background:rgba(30,41,59,0.7);border:1px solid rgba(245,158,11,0.3)">
-        <div style="font-size:.7rem;color:var(--text3);text-transform:uppercase;font-weight:600">Database Instrumen</div>
-        <div style="font-size:1.6rem;font-weight:700;color:#f59e0b;margin-top:2px"><?= count($dbSources) ?> <small style="font-size:.75rem;color:var(--text3)">Mode</small></div>
-        <div style="font-size:.68rem;color:var(--text3)"><?= !empty($dbSources) ? implode(', ', $dbSources) : 'mineral.db, alloy.db' ?></div>
+    <div class="card" style="padding:14px;background:rgba(30,41,59,0.7);border:1px solid rgba(56,189,248,0.4)">
+        <div style="font-size:.7rem;color:var(--text3);text-transform:uppercase;font-weight:600">ID Alat / Perangkat Pengirim</div>
+        <div style="font-size:1.6rem;font-weight:700;color:#38bdf8;margin-top:2px"><?= count($devices) ?> <small style="font-size:.75rem;color:var(--text3)">Alat</small></div>
+        <div style="font-size:.68rem;color:var(--text2);margin-top:2px;display:flex;gap:4px;flex-wrap:wrap">
+            <?php foreach ($devices as $d): ?>
+                <span class="xrf-badge-device" style="font-size:.62rem;padding:1px 5px">📱 <?= bersihkan($d) ?></span>
+            <?php endforeach; ?>
+        </div>
     </div>
-    <div class="card" style="padding:14px;background:rgba(30,41,59,0.7);border:1px solid rgba(168,85,247,0.3)">
-        <div style="font-size:.7rem;color:var(--text3);text-transform:uppercase;font-weight:600">Kurva Kalibrasi</div>
-        <div style="font-size:1.6rem;font-weight:700;color:#c084fc;margin-top:2px"><?= count($workCurves) ?> <small style="font-size:.75rem;color:var(--text3)">Kurva</small></div>
-        <div style="font-size:.68rem;color:var(--text3)">Work curves terdaftar</div>
+    <div class="card" style="padding:14px;background:rgba(30,41,59,0.7);border:1px solid rgba(245,158,11,0.3)">
+        <div style="font-size:.7rem;color:var(--text3);text-transform:uppercase;font-weight:600">Database &amp; Kurva Kalibrasi</div>
+        <div style="font-size:1.6rem;font-weight:700;color:#f59e0b;margin-top:2px"><?= count($dbSources) ?> <small style="font-size:.75rem;color:var(--text3)">DB</small> · <?= count($workCurves) ?> <small style="font-size:.75rem;color:var(--text3)">Kurva</small></div>
+        <div style="font-size:.68rem;color:var(--text3)"><?= !empty($dbSources) ? implode(', ', $dbSources) : 'alloy.db, metal.db, mineral.db' ?></div>
     </div>
 </div>
 
@@ -216,6 +246,15 @@ require_once __DIR__ . '/../includes/header.php';
         <input type="date" name="fend" value="<?= bersihkan($fEnd) ?>" style="background:var(--bg2);border:1px solid var(--border);color:var(--text);padding:6px 8px;border-radius:4px;font-size:.75rem;outline:none"/>
     </div>
 
+    <!-- Filter ID Alat / Device -->
+    <select name="fdevice" style="background:var(--bg2);border:1px solid var(--border);color:var(--text);padding:6px 10px;border-radius:4px;font-size:.75rem;outline:none">
+        <option value="">📱 Semua ID Alat (XRF04, XRF-7000...)</option>
+        <?php foreach ($devices as $dev): ?>
+            <option value="<?= bersihkan($dev) ?>" <?= $fDevice===$dev?'selected':'' ?>>Alat: <?= bersihkan($dev) ?></option>
+        <?php endforeach; ?>
+    </select>
+
+    <!-- Filter Mode / DB -->
     <select name="fmode" style="background:var(--bg2);border:1px solid var(--border);color:var(--text);padding:6px 10px;border-radius:4px;font-size:.75rem;outline:none">
         <option value="">Semua Mode / DB</option>
         <option value="mineral.db" <?= $fMode==='mineral.db'?'selected':'' ?>>mineral.db (Mineral &amp; Batuan)</option>
@@ -230,7 +269,7 @@ require_once __DIR__ . '/../includes/header.php';
         <?php endif; ?>
     </select>
 
-    <input name="fsearch" value="<?= bersihkan($fSearch) ?>" placeholder="🔍 Cari sampel, operator, grade, curve..."
+    <input name="fsearch" value="<?= bersihkan($fSearch) ?>" placeholder="🔍 Cari sampel, ID alat (XRF04), operator, grade, curve..."
            style="flex:1;min-width:180px;background:var(--bg2);border:1px solid var(--border);color:var(--text);padding:6px 10px;border-radius:4px;font-size:.75rem;outline:none"/>
 
     <button type="submit" class="btn btn-green btn-sm" style="padding:6px 14px">Terapkan Filter</button>
@@ -240,7 +279,7 @@ require_once __DIR__ . '/../includes/header.php';
 <!-- Data Table Card -->
 <div class="card" style="margin-bottom:16px">
     <div class="card-title" style="display:flex;justify-content:space-between;align-items:center">
-        <div>⚡ Daftar Pengukuran XRF Explorer <span style="font-size:.75rem;color:var(--text3);font-weight:normal">(<?= number_format($totalRows) ?> total data)</span></div>
+        <div>⚡ Daftar Pengukuran XRF <span style="font-size:.75rem;color:var(--text3);font-weight:normal">(<?= number_format($totalRows) ?> total data)</span></div>
         <div style="font-size:.75rem;color:var(--text3)">Halaman <?= $page ?> dari <?= $totalPages ?></div>
     </div>
 
@@ -248,14 +287,15 @@ require_once __DIR__ . '/../includes/header.php';
         <table class="data-table" style="font-size:.78rem">
             <thead>
                 <tr>
-                    <th style="width:130px">Waktu Scan</th>
+                    <th style="width:115px">Waktu Scan</th>
+                    <th style="width:105px">ID Alat XRF</th>
                     <th style="width:140px">Nama Sampel</th>
-                    <th style="width:90px">Mode / DB</th>
-                    <th style="width:140px">Kurva Kerja</th>
-                    <th style="width:100px">Operator</th>
+                    <th style="width:85px">Mode / DB</th>
+                    <th style="width:130px">Kurva Kerja</th>
+                    <th style="width:90px">Operator</th>
                     <th>Kandungan Unsur (Elemental Analysis)</th>
-                    <th style="width:120px">Kondisi Tabung</th>
-                    <th style="width:90px;text-align:center">Aksi</th>
+                    <th style="width:115px">Kondisi Tabung</th>
+                    <th style="width:75px;text-align:center">Aksi</th>
                 </tr>
             </thead>
             <tbody>
@@ -263,10 +303,17 @@ require_once __DIR__ . '/../includes/header.php';
                     $dbBadge = 'xrf-mode-mineral';
                     if ($xrf['db_source'] === 'alloy.db') $dbBadge = 'xrf-mode-alloy';
                     elseif ($xrf['db_source'] === 'metal.db') $dbBadge = 'xrf-mode-metal';
+                    
+                    $devId = !empty($xrf['device_id']) ? $xrf['device_id'] : 'XRF04';
                 ?>
                 <tr>
                     <td style="color:var(--text3);font-size:.73rem;white-space:nowrap">
                         <?= $xrf['test_date'] ? date('d/m/Y H:i', strtotime($xrf['test_date'])) : '—' ?>
+                    </td>
+                    <td style="white-space:nowrap">
+                        <span class="xrf-badge-device">
+                            📱 <?= bersihkan($devId) ?>
+                        </span>
                     </td>
                     <td>
                         <strong style="color:var(--gold);font-size:.82rem"><?= bersihkan($xrf['sample_name'] ?: 'Tanpa Nama') ?></strong>
@@ -274,8 +321,10 @@ require_once __DIR__ . '/../includes/header.php';
                     </td>
                     <td><span class="xrf-badge-mode <?= $dbBadge ?>"><?= bersihkan($xrf['db_source'] ?: '—') ?></span></td>
                     <td>
-                        <div><?= bersihkan($xrf['work_curve_name'] ?: 'Default') ?></div>
-                        <div style="font-size:.68rem;color:var(--text3)"><?= $xrf['device_id'] ? bersihkan($xrf['device_id']) : 'XRF-7000' ?></div>
+                        <div style="font-weight:600"><?= bersihkan($xrf['work_curve_name'] ?: 'Default') ?></div>
+                        <?php if (!empty($xrf['grade']) && $xrf['grade'] !== '—'): ?>
+                            <div style="font-size:.68rem;color:var(--text3)">Grade: <?= bersihkan($xrf['grade']) ?></div>
+                        <?php endif; ?>
                     </td>
                     <td style="font-size:.75rem"><?= bersihkan($xrf['operator'] ?: '—') ?></td>
                     <td>
@@ -306,7 +355,7 @@ require_once __DIR__ . '/../includes/header.php';
                 </tr>
                 <?php endforeach; ?>
                 <?php if (empty($xrfList)): ?>
-                    <tr><td colspan="8" style="text-align:center;color:var(--text3);padding:32px">Tidak ada data XRF yang sesuai filter.</td></tr>
+                    <tr><td colspan="9" style="text-align:center;color:var(--text3);padding:32px">Tidak ada data XRF yang sesuai filter.</td></tr>
                 <?php endif; ?>
             </tbody>
         </table>
@@ -354,6 +403,7 @@ require_once __DIR__ . '/../includes/header.php';
         <div style="overflow-y:auto;flex:1;padding-right:4px;">
             <!-- Grid Metadata & Sensor -->
             <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:14px;font-size:.75rem">
+                <div><span style="color:var(--text3)">ID Alat / Device:</span> <strong id="detDeviceId" style="color:#38bdf8;font-family:monospace"></strong></div>
                 <div><span style="color:var(--text3)">Sumber DB:</span> <strong id="detDb" style="color:var(--gold)"></strong></div>
                 <div><span style="color:var(--text3)">ID Report:</span> <strong id="detReportId"></strong></div>
                 <div><span style="color:var(--text3)">Kurva Kerja:</span> <strong id="detCurve"></strong></div>
@@ -395,8 +445,10 @@ require_once __DIR__ . '/../includes/header.php';
 <script>
 function showXrfDetailModal(data) {
     if (!data) return;
+    const devId = data.device_id || 'XRF04';
     document.getElementById('detSampleName').textContent = data.sample_name || 'Tanpa Nama';
-    document.getElementById('detDate').textContent = (data.test_date ? data.test_date : '') + (data.device_id ? ` · Instrumen: ${data.device_id}` : '');
+    document.getElementById('detDate').textContent = (data.test_date ? data.test_date : '') + ` · Alat: ${devId}`;
+    document.getElementById('detDeviceId').textContent = devId;
     document.getElementById('detDb').textContent = data.db_source || '—';
     document.getElementById('detReportId').textContent = '#' + (data.report_id || data.id || '—');
     document.getElementById('detCurve').textContent = data.work_curve_name || '—';
