@@ -1,0 +1,18 @@
+# Dependencies
+/vendor/
+/node_modules/
+
+# Environment & IDE
+.env
+.vscode/
+.idea/
+
+# Scratch & Temporary test scripts
+scratch/
+*.log
+*.tmp
+*connection_log.json
+
+# APK binaries
+*.apk
+pages/*.apk

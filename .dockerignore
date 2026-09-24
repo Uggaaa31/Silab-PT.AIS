@@ -1,0 +1,10 @@
+.git
+.gitignore
+.vscode
+.idea
+XrfSyncApp
+scratch
+*.log
+*.tmp
+.env
+README.md

@@ -1,0 +1,10 @@
+{
+    "name": "fadli/labmineral",
+    "description": "Aplikasi sistem manajemen lab",
+    "type": "project",
+    "minimum-stability": "stable",
+    "require": {
+        "tecnickcom/tcpdf": "^6.11",
+        "phpoffice/phpspreadsheet": "^5.5"
+    }
+}

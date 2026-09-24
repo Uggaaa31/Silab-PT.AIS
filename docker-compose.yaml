@@ -1,0 +1,102 @@
+services:
+  # ============================================================================
+  # 1. WEB APPLICATION & API (PHP 8.2 + Apache)
+  # ============================================================================
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: labmineral-app
+    restart: unless-stopped
+    ports:
+      - "${APP_PORT:-8080}:80"
+    environment:
+      DB_HOST: db
+      DB_PORT: ${DB_PORT:-3306}
+      DB_NAME: ${DB_NAME:-labmineral}
+      DB_USER: ${DB_USER:-labuser}
+      DB_PASS: ${DB_PASS:-labmineral_secure_pass2026}
+      APP_NAME: ${APP_NAME:-LabMineral Pro}
+      BASE_URL: ${BASE_URL:-}
+      XRF_SECRET_KEY: ${XRF_SECRET_KEY:-xrf_secret_labmineral_2026}
+    volumes:
+      - app_exports:/var/www/html/exports
+      - app_scratch:/var/www/html/scratch
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - labmineral-network
+
+  # ============================================================================
+  # 2. DATABASE (MariaDB 10.11)
+  # ============================================================================
+  db:
+    image: mariadb:10.11
+    container_name: labmineral-db
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-root_secure_pass2026}
+      MYSQL_DATABASE: ${DB_NAME:-labmineral}
+      MYSQL_USER: ${DB_USER:-labuser}
+      MYSQL_PASSWORD: ${DB_PASS:-labmineral_secure_pass2026}
+    volumes:
+      - db_data:/var/lib/mysql
+      - ./scripts/sql:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    networks:
+      - labmineral-network
+
+  # ============================================================================
+  # 3. CLOUDFLARE TUNNEL (Expose to Public Domain)
+  # ============================================================================
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: labmineral-tunnel
+    restart: unless-stopped
+    command: tunnel --no-autoupdate run --token ${CLOUDFLARE_TUNNEL_TOKEN}
+    depends_on:
+      - app
+    networks:
+      - labmineral-network
+
+  # ============================================================================
+  # 4. DATABASE MANAGEMENT GUI (phpMyAdmin - Akses via http://<IP_UBUNTU>:8081)
+  # ============================================================================
+  phpmyadmin:
+    image: phpmyadmin:latest
+    container_name: labmineral-pma
+    restart: unless-stopped
+    ports:
+      - "${PMA_PORT:-8081}:80"
+    environment:
+      PMA_HOST: db
+      PMA_PORT: 3306
+      PMA_USER: ${DB_USER:-labuser}
+      PMA_PASSWORD: ${DB_PASS:-labmineral_secure_pass2026}
+      UPLOAD_LIMIT: 64M
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - labmineral-network
+
+# ==============================================================================
+# NETWORKS & VOLUMES
+# ==============================================================================
+networks:
+  labmineral-network:
+    driver: bridge
+
+volumes:
+  db_data:
+    driver: local
+  app_exports:
+    driver: local
+  app_scratch:
+    driver: local
