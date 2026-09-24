@@ -36,14 +36,15 @@ $xrfList    = [];
 
 try {
     $totalCount = (int)$pdo->query("SELECT COUNT(*) FROM xrf_measurements")->fetchColumn();
-    $todayCount = (int)$pdo->query("SELECT COUNT(*) FROM xrf_measurements WHERE DATE(test_date) = CURDATE()")->fetchColumn();
-    $devices    = $pdo->query("SELECT DISTINCT device_id FROM xrf_measurements WHERE device_id IS NOT NULL AND device_id != '' ORDER BY device_id")->fetchAll(PDO::FETCH_COLUMN);
+    $devFromMeasurements = $pdo->query("SELECT DISTINCT device_id FROM xrf_measurements WHERE device_id IS NOT NULL AND device_id != ''")->fetchAll(PDO::FETCH_COLUMN);
+    $devFromTable = [];
+    try {
+        $devFromTable = $pdo->query("SELECT DISTINCT device_id FROM xrf_devices WHERE is_active = 1")->fetchAll(PDO::FETCH_COLUMN);
+    } catch (Exception $e) {}
+    $devices = array_values(array_unique(array_filter(array_merge(['XRF01', 'XRF02', 'XRF03', 'XRF04'], $devFromTable, $devFromMeasurements))));
+    sort($devices);
     $dbSources  = $pdo->query("SELECT DISTINCT db_source FROM xrf_measurements WHERE db_source IS NOT NULL AND db_source != '' ORDER BY db_source")->fetchAll(PDO::FETCH_COLUMN);
     $workCurves = $pdo->query("SELECT DISTINCT work_curve_name FROM xrf_measurements WHERE work_curve_name IS NOT NULL AND work_curve_name != '' AND work_curve_name != '-' ORDER BY work_curve_name")->fetchAll(PDO::FETCH_COLUMN);
-
-    if (empty($devices)) {
-        $devices = ['XRF04', 'XRF-7000'];
-    }
 
     $sql = "SELECT * FROM xrf_measurements WHERE 1=1";
     $prm = [];
