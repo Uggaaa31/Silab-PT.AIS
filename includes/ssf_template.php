@@ -52,9 +52,9 @@
         <div class="ssf-section-title">A. INFORMASI KLIEN / CUSTOMER INFORMATION</div>
         <div class="ssf-grid">
             <div class="ssf-field"><label>Nama Perusahaan</label><span><?= htmlspecialchars($_POST['klien'] ?? '-') ?></span></div>
-            <div class="ssf-field"><label>Kontak Person</label><span><?= htmlspecialchars($_POST['kontak_person'] ?? '-') ?></span></div>
             <div class="ssf-field"><label>Email</label><span><?= htmlspecialchars($_POST['email'] ?? '-') ?></span></div>
             <div class="ssf-field"><label>No. Telepon</label><span><?= htmlspecialchars($_POST['telepon'] ?? '-') ?></span></div>
+            <div class="ssf-field"><label>Alamat</label><span><?= htmlspecialchars($_POST['alamat'] ?? '-') ?></span></div>
         </div>
     </div>
 

@@ -246,7 +246,10 @@ $sqlRec  = "SELECT p.*, u.nama AS operator,
             LEFT JOIN pengguna u ON p.dibuat_oleh = u.id
             WHERE 1=1";
 $pRec = [];
-if ($search)  { $sqlRec .= " AND (p.nomor_penerimaan LIKE ? OR p.klien LIKE ?)"; $pRec = array_merge($pRec, ["%$search%","%$search%"]); }
+if ($search)  { 
+    $sqlRec .= " AND (p.nomor_penerimaan LIKE ? OR p.klien LIKE ? OR p.keterangan LIKE ?)"; 
+    $pRec = array_merge($pRec, ["%$search%","%$search%","%$search%"]); 
+}
 if ($fStatus) { $sqlRec .= " AND p.status = ?"; $pRec[] = $fStatus; }
 $sqlRec .= " ORDER BY p.created_at DESC";
 $stRec   = $pdo->prepare($sqlRec); $stRec->execute($pRec);
@@ -254,18 +257,6 @@ $recList = $stRec->fetchAll();
 
 $materialOpts = ['Bijih Emas','Nikel Laterit','Tembaga','Bauksit','Bijih Besi','Timbal/Seng','Mangan','Kromit','Lainnya'];
 $metodeOpts   = ['AAS','XRF','ICP-OES','Gravimetri','Fire Assay','Volumetri'];
-
-// Ambil daftar submission yang sudah diterima untuk dropdown
-$submissionsList = [];
-if ($submissionTablesReady) {
-    $submissionsList = $pdo->query("
-        SELECT id, nomor_submission, klien, email, telepon, tanggal_submit,
-               (SELECT COUNT(*) FROM submission_sampel_detail WHERE submission_id = submission_sampel.id) AS jumlah_sampel
-        FROM submission_sampel
-        WHERE status = 'diterima'
-        ORDER BY tanggal_submit DESC
-    ")->fetchAll();
-}
 
 require_once __DIR__ . '/../includes/header.php';
 ?>
@@ -418,10 +409,24 @@ require_once __DIR__ . '/../includes/header.php';
                 </tr>
             </thead>
             <tbody>
-            <?php foreach ($recList as $r): ?>
+            <?php foreach ($recList as $r): 
+                $isSSF = (stripos($r['keterangan'] ?? '', 'SSF') !== false);
+            ?>
             <tr>
-                <td style="font-weight:700;color:var(--gold)"><?= bersihkan($r['nomor_penerimaan']) ?></td>
-                <td><?= bersihkan($r['klien']) ?></td>
+                <td style="font-weight:700;color:var(--gold);white-space:nowrap">
+                    <?= bersihkan($r['nomor_penerimaan']) ?>
+                    <?php if ($isSSF): ?>
+                        <span style="display:inline-block;font-size:.62rem;padding:2px 5px;border-radius:4px;background:rgba(232,180,0,0.15);color:var(--gold);border:1px solid rgba(232,180,0,0.35);margin-left:4px;font-weight:600" title="Jalur Online SSF">SSF</span>
+                    <?php else: ?>
+                        <span style="display:inline-block;font-size:.62rem;padding:2px 5px;border-radius:4px;background:rgba(16,185,129,0.15);color:#10b981;border:1px solid rgba(16,185,129,0.35);margin-left:4px;font-weight:600" title="Jalur Input Admin">Admin</span>
+                    <?php endif; ?>
+                </td>
+                <td>
+                    <strong><?= bersihkan($r['klien']) ?></strong>
+                    <?php if (!empty($r['keterangan'])): ?>
+                        <div style="font-size:.7rem;color:var(--text3);margin-top:2px"><?= bersihkan($r['keterangan']) ?></div>
+                    <?php endif; ?>
+                </td>
                 <td><?= date('d/m/Y', strtotime($r['tanggal_terima'])) ?></td>
                 <td style="text-align:center"><strong><?= $r['total_sampel'] ?></strong></td>
                 <td style="text-align:center;color:var(--green)"><?= $r['total_lulus'] ?></td>
@@ -480,47 +485,7 @@ require_once __DIR__ . '/../includes/header.php';
             <?php endif; ?>
             </tbody>
         </table>
-        </div>
     </div>
-    
-    <!-- Tampilkan daftar submission yang siap diproses -->
-    <?php if (!empty($submissionsList)): ?>
-    <div class="card" style="margin-top:16px">
-        <div class="card-title">📋 Submission Klien Siap Diproses</div>
-        <div style="overflow-x:auto">
-        <table class="data-table">
-            <thead>
-                <tr>
-                    <th>No. Submission</th>
-                    <th>Klien</th>
-                    <th>Email</th>
-                    <th>Tgl Submit</th>
-                    <th>Sampel</th>
-                    <th>Aksi</th>
-                 </tr>
-            </thead>
-            <tbody>
-            <?php foreach ($submissionsList as $sub): ?>
-            <tr>
-                <td style="font-family:monospace"><?= bersihkan($sub['nomor_submission']) ?></td>
-                <td><?= bersihkan($sub['klien']) ?></td>
-                <td><?= bersihkan($sub['email']) ?></td>
-                <td><?= fmtTgl($sub['tanggal_submit']) ?></td>
-                <td style="text-align:center"><?= $sub['jumlah_sampel'] ?></td>
-                <td>
-                    <a href="<?= BASE_URL ?>/pages/penerimaan.php?process_submission=<?= $sub['id'] ?>" 
-                       class="btn btn-gold btn-sm" style="font-size:.68rem;padding:3px 8px"
-                       onclick="return confirm('Proses submission ini ke penerimaan? Data akan langsung masuk ke database.')">
-                        📦 Proses ke Penerimaan
-                    </a>
-                </td>
-            </tr>
-            <?php endforeach; ?>
-            </tbody>
-        </table>
-        </div>
-    </div>
-    <?php endif; ?>
 </div>
 
 <!-- ══════════════════════════════════════════════════

@@ -26,6 +26,24 @@ $lastWo = $pdo->query("SELECT nomor_wo FROM work_order ORDER BY id DESC LIMIT 1"
 $nextWo = $lastWo ? (intval(substr($lastWo, -3)) + 1) : 1;
 $noAuto = 'WO-' . date('ym') . '-' . str_pad($nextWo, 3, '0', STR_PAD_LEFT);
 
+// ── Helper ekstrak parameter dari string keterangan ─────────
+function getParamDisplayList($keterangan = '') {
+    $params = [];
+    if (!empty($keterangan)) {
+        if (preg_match_all('/Param:\s*([^\;\|]+)/i', $keterangan, $matches)) {
+            foreach ($matches[1] as $m) {
+                foreach (explode(',', $m) as $item) {
+                    $cleaned = trim(preg_replace('/\s*\([^)]*\)/', '', $item));
+                    if ($cleaned && !in_array($cleaned, $params)) {
+                        $params[] = $cleaned;
+                    }
+                }
+            }
+        }
+    }
+    return $params;
+}
+
 // ── Penerimaan (batch) yang belum punya WO aktif/draft ───────
 // Satu penerimaan = satu WO batch. Tampilkan per batch, bukan per sampel.
 $penerimaanAntri = $pdo->query("
@@ -34,9 +52,12 @@ $penerimaanAntri = $pdo->query("
         rec.nomor_penerimaan,
         rec.klien,
         rec.tanggal_terima,
+        rec.metode_uji,
         COUNT(s.id)             AS jumlah_sampel,
         GROUP_CONCAT(s.kode_sampel ORDER BY s.kode_sampel SEPARATOR ', ')         AS daftar_sampel,
-        GROUP_CONCAT(DISTINCT s.jenis_material ORDER BY s.jenis_material SEPARATOR ', ') AS jenis_material
+        GROUP_CONCAT(DISTINCT s.jenis_material ORDER BY s.jenis_material SEPARATOR ', ') AS jenis_material,
+        GROUP_CONCAT(DISTINCT s.keterangan SEPARATOR ' ; ') AS sampel_keterangan,
+        GROUP_CONCAT(DISTINCT s.metode_uji SEPARATOR ', ') AS sampel_metode
     FROM penerimaan_sampel rec
     JOIN sampel s ON s.penerimaan_id = rec.id
     WHERE s.status IN ('antrian','diuji')
@@ -57,7 +78,7 @@ $penerimaanAntri = $pdo->query("
 // ── Sampel individual (untuk mode single / tanpa batch) ──────
 // Hanya sampel yang belum masuk pivot WO manapun yang aktif
 $sampelSingle = $pdo->query("
-    SELECT s.id, s.kode_sampel, s.jenis_material, s.klien,
+    SELECT s.id, s.kode_sampel, s.jenis_material, s.klien, s.metode_uji, s.keterangan,
            rec.nomor_penerimaan, rec.id AS penerimaan_id
     FROM sampel s
     LEFT JOIN penerimaan_sampel rec ON s.penerimaan_id = rec.id
@@ -215,6 +236,14 @@ require_once __DIR__ . '/../includes/header.php';
 .sp-row{display:flex;gap:14px;flex-wrap:wrap;}
 .sp-item .lbl{font-size:.68rem;color:var(--text3);}
 .sp-item .val{color:var(--gold);font-weight:700;font-size:.82rem;}
+
+/* Param chip selector & tags */
+.param-chips-wrap{display:flex;flex-wrap:wrap;gap:5px;margin-top:7px;}
+.param-chip-btn{background:#112416;border:1px solid #1e3d22;color:#7aaa82;border-radius:4px;padding:3px 8px;font-size:.72rem;cursor:pointer;transition:all .15s ease;font-family:inherit;}
+.param-chip-btn:hover{background:#1b3820;color:var(--gold);border-color:#2d5c33;}
+.param-chip-btn.active{background:rgba(232,180,0,0.18);border-color:var(--gold);color:var(--gold);font-weight:700;box-shadow:0 0 8px rgba(232,180,0,0.25);}
+.param-tag{display:inline-block;background:rgba(232,180,0,0.12);color:var(--gold);border:1px solid rgba(232,180,0,0.25);border-radius:3px;padding:1px 6px;font-size:.67rem;font-weight:600;margin:1px;}
+.param-col-item{background:#0a170d;border:1px solid var(--border);border-radius:6px;padding:5px 10px;font-size:.73rem;display:inline-flex;align-items:center;gap:6px;}
 </style>
 
 <div class="sec-title">Work Order &amp; Penugasan Analisis</div>
@@ -441,16 +470,21 @@ require_once __DIR__ . '/../includes/header.php';
                         <label>Nomor Penerimaan (Batch) <span style="color:var(--red)">*</span></label>
                         <select name="penerimaan_id" id="selPenerimaan" onchange="onPenerimaanChange(this)">
                             <option value="">— Pilih batch penerimaan —</option>
-                            <?php foreach ($penerimaanAntri as $rec): ?>
+                            <?php foreach ($penerimaanAntri as $rec): 
+                                $bParams = getParamDisplayList($rec['sampel_keterangan']);
+                                $paramStrVal = implode(', ', $bParams);
+                            ?>
                                 <option value="<?= $rec['penerimaan_id'] ?>"
                                         data-klien="<?= bersihkan($rec['klien']) ?>"
                                         data-jml="<?= $rec['jumlah_sampel'] ?>"
                                         data-material="<?= bersihkan(substr($rec['jenis_material'], 0, 60)) ?>"
                                         data-sampel="<?= bersihkan(substr($rec['daftar_sampel'], 0, 120)) ?>"
+                                        data-params="<?= bersihkan($paramStrVal) ?>"
+                                        data-metode="<?= bersihkan($rec['metode_uji'] ?: $rec['sampel_metode']) ?>"
                                         data-tgl="<?= $rec['tanggal_terima'] ?>">
                                     <?= bersihkan($rec['nomor_penerimaan']) ?>
                                     — <?= bersihkan($rec['klien']) ?>
-                                    (<?= $rec['jumlah_sampel'] ?> sampel)
+                                    (<?= $rec['jumlah_sampel'] ?> sampel<?= $paramStrVal ? ' · Param: '.bersihkan($paramStrVal) : '' ?>)
                                 </option>
                             <?php endforeach; ?>
                         </select>
@@ -466,6 +500,9 @@ require_once __DIR__ . '/../includes/header.php';
                         </div>
                         <div style="margin-top:6px;font-size:.75rem;color:var(--text3)">
                             <span style="color:var(--text2)">Material:</span> <span id="bpMat">—</span>
+                        </div>
+                        <div style="margin-top:4px;font-size:.75rem;color:var(--text3)" id="bpParamRow">
+                            <span style="color:var(--text2)">Parameter Terdeteksi:</span> <span id="bpParams" style="color:var(--gold);font-weight:600">—</span>
                         </div>
                         <div style="margin-top:4px;font-size:.72rem;color:var(--text3)">
                             <span style="color:var(--text2)">Sampel:</span> <span id="bpSampel">—</span>
@@ -530,15 +567,52 @@ require_once __DIR__ . '/../includes/header.php';
                 <div class="form-row">
                     <div class="form-group">
                         <label>Metode Analisis</label>
-                        <select name="metode">
+                        <select name="metode" id="inputMetode">
                             <option value="">— Pilih —</option>
                             <?php foreach ($metodeOpts as $m): ?><option><?= $m ?></option><?php endforeach; ?>
                         </select>
                     </div>
                     <div class="form-group">
-                        <label>Parameter yang Diuji</label>
-                        <input name="parameter" placeholder="Au, Ag, Cu, Fe... (pisah koma)"/>
+                        <label>Parameter yang Diuji <span style="font-size:.72rem;color:var(--text3)">(Pilih tag / ketik pisah koma)</span></label>
+                        <input name="parameter" id="inputParameter" placeholder="Au, Ag, Cu, Fe... (pisah koma)" oninput="onParamInputManual(this.value)"/>
+                        
+                        <!-- Quick Click Parameter Chips -->
+                        <div class="param-chips-wrap">
+                            <?php 
+                            $popularParams = [
+                                'Au' => 'Au (Emas)',
+                                'Ag' => 'Ag (Perak)',
+                                'Cu' => 'Cu (Tembaga)',
+                                'Ni' => 'Ni (Nikel)',
+                                'Fe' => 'Fe (Besi)',
+                                'Al2O3' => 'Al2O3',
+                                'SiO2' => 'SiO2',
+                                'Pb' => 'Pb (Timbal)',
+                                'Zn' => 'Zn (Seng)',
+                                'Mn' => 'Mn (Mangan)',
+                                'Cr' => 'Cr (Kromium)',
+                                'Co' => 'Co (Kobalt)'
+                            ];
+                            foreach ($popularParams as $key => $label): ?>
+                                <button type="button" class="param-chip-btn" id="chip_<?= preg_replace('/[^a-zA-Z0-9]/', '', $key) ?>" onclick="toggleParamChip('<?= $key ?>')" data-param="<?= $key ?>">
+                                    + <?= $label ?>
+                                </button>
+                            <?php endforeach; ?>
+                        </div>
                     </div>
+                </div>
+
+                <!-- Preview Pemisahan Kolom Parameter (jika ada parameter) -->
+                <div id="paramColumnPreview" style="display:none;margin-bottom:14px;padding:12px 14px;background:#0d2318;border:1px solid var(--green3);border-radius:8px">
+                    <div style="font-size:.76rem;color:var(--text3);margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px">
+                        <div>
+                            📊 <strong style="color:var(--gold)"><span id="paramCountBadge">0</span> Kolom Parameter Terpisah</strong> yang akan dibuat di Form Pengujian:
+                        </div>
+                        <span style="font-size:.68rem;color:var(--text3);background:var(--bg3);padding:2px 8px;border-radius:4px;border:1px solid var(--border)">
+                            1 baris per sampel × parameter
+                        </span>
+                    </div>
+                    <div id="paramPillsList" style="display:flex;gap:8px;flex-wrap:wrap"></div>
                 </div>
                 <div class="form-row">
                     <div class="form-group">
@@ -591,10 +665,13 @@ require_once __DIR__ . '/../includes/header.php';
                         <th>Klien</th>
                         <th>Jml Sampel</th>
                         <th>Material</th>
+                        <th>Parameter</th>
                     </tr>
                 </thead>
                 <tbody>
-                <?php foreach ($penerimaanAntri as $rec): ?>
+                <?php foreach ($penerimaanAntri as $rec): 
+                    $bParams = getParamDisplayList($rec['sampel_keterangan']);
+                ?>
                 <tr>
                     <td>
                         <span class="ref-badge">&#128230; <?= bersihkan($rec['nomor_penerimaan']) ?></span>
@@ -604,7 +681,16 @@ require_once __DIR__ . '/../includes/header.php';
                         <span class="count-badge"><?= $rec['jumlah_sampel'] ?></span>
                     </td>
                     <td style="font-size:.72rem;color:var(--text3)">
-                        <?= bersihkan(substr($rec['jenis_material'], 0, 40)) ?>
+                        <?= bersihkan(substr($rec['jenis_material'], 0, 30)) ?>
+                    </td>
+                    <td>
+                        <?php if (!empty($bParams)): ?>
+                            <?php foreach ($bParams as $bp): ?>
+                                <span class="param-tag"><?= bersihkan($bp) ?></span>
+                            <?php endforeach; ?>
+                        <?php else: ?>
+                            <span style="color:var(--text3);font-size:.72rem">—</span>
+                        <?php endif; ?>
                     </td>
                 </tr>
                 <?php endforeach; ?>
@@ -616,12 +702,23 @@ require_once __DIR__ . '/../includes/header.php';
             <div style="margin-top:16px">
                 <div class="card-title" style="font-size:.78rem">&#128300; Sampel Tanpa Batch / Belum Ada WO</div>
                 <table>
-                    <thead><tr><th>Kode</th><th>Material</th><th>Klien</th><th>Ref.</th></tr></thead>
+                    <thead><tr><th>Kode</th><th>Material</th><th>Parameter</th><th>Klien</th><th>Ref.</th></tr></thead>
                     <tbody>
-                    <?php foreach ($sampelSingle as $s): ?>
+                    <?php foreach ($sampelSingle as $s): 
+                        $sParams = getParamDisplayList($s['keterangan']);
+                    ?>
                     <tr>
                         <td style="color:var(--gold)"><?= bersihkan($s['kode_sampel']) ?></td>
                         <td style="font-size:.75rem"><?= bersihkan($s['jenis_material']) ?></td>
+                        <td>
+                            <?php if (!empty($sParams)): ?>
+                                <?php foreach ($sParams as $sp): ?>
+                                    <span class="param-tag"><?= bersihkan($sp) ?></span>
+                                <?php endforeach; ?>
+                            <?php else: ?>
+                                <span style="color:var(--text3);font-size:.72rem">—</span>
+                            <?php endif; ?>
+                        </td>
                         <td style="font-size:.75rem"><?= bersihkan($s['klien']) ?></td>
                         <td>
                             <?php if ($s['nomor_penerimaan']): ?>
@@ -762,8 +859,102 @@ function onPenerimaanChange(sel) {
         : '—';
     document.getElementById('bpMat').textContent    = opt.dataset.material || '—';
     document.getElementById('bpSampel').textContent = opt.dataset.sampel   || '—';
+    
+    // Parameter terdeteksi
+    const params = opt.dataset.params || '';
+    document.getElementById('bpParams').textContent = params || '—';
+    
+    // Auto-set metode jika ada
+    if (opt.dataset.metode) {
+        const metSelect = document.getElementById('inputMetode');
+        if (metSelect) {
+            for (let i = 0; i < metSelect.options.length; i++) {
+                if (metSelect.options[i].value.toLowerCase() === opt.dataset.metode.toLowerCase()) {
+                    metSelect.selectedIndex = i;
+                    break;
+                }
+            }
+        }
+    }
+
+    // Auto-set parameter jika ada
+    if (params) {
+        document.getElementById('inputParameter').value = params;
+        updateParamUI();
+    }
+
     preview.classList.add('show');
 }
+
+// ── Parameter Chips & Multi-Column Preview ────────────────────
+function getSelectedParams() {
+    const el = document.getElementById('inputParameter');
+    if (!el) return [];
+    const raw = el.value;
+    if (!raw.trim()) return [];
+    return raw.split(',').map(s => s.trim()).filter(Boolean);
+}
+
+function updateParamUI() {
+    const params = getSelectedParams();
+    
+    // Update active class on chip buttons
+    document.querySelectorAll('.param-chip-btn').forEach(btn => {
+        const p = btn.dataset.param;
+        const isActive = params.some(item => item.toLowerCase() === p.toLowerCase() || item.toLowerCase().startsWith(p.toLowerCase() + ' '));
+        btn.classList.toggle('active', isActive);
+    });
+
+    // Update Preview Box
+    const previewBox = document.getElementById('paramColumnPreview');
+    const countBadge = document.getElementById('paramCountBadge');
+    const pillsList  = document.getElementById('paramPillsList');
+
+    if (previewBox && countBadge && pillsList) {
+        if (params.length > 0) {
+            countBadge.textContent = params.length;
+            pillsList.innerHTML = params.map((p, idx) => `
+                <div class="param-col-item">
+                    <span style="font-size:.65rem;color:var(--text3);font-weight:700">#${idx + 1}</span>
+                    <span class="param-tag" style="font-size:.78rem;padding:2px 8px">${escapeHtml(p)}</span>
+                    <span style="color:var(--text3);font-size:.68rem">Kolom Uji</span>
+                </div>
+            `).join('');
+            previewBox.style.display = 'block';
+        } else {
+            previewBox.style.display = 'none';
+        }
+    }
+}
+
+function toggleParamChip(paramName) {
+    let params = getSelectedParams();
+    const existingIndex = params.findIndex(p => p.toLowerCase() === paramName.toLowerCase() || p.toLowerCase().startsWith(paramName.toLowerCase() + ' '));
+
+    if (existingIndex >= 0) {
+        params.splice(existingIndex, 1);
+    } else {
+        params.push(paramName);
+    }
+
+    document.getElementById('inputParameter').value = params.join(', ');
+    updateParamUI();
+}
+
+function onParamInputManual(val) {
+    updateParamUI();
+}
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+// Inisialisasi UI parameter saat pertama load
+document.addEventListener('DOMContentLoaded', function() {
+    updateParamUI();
+});
 </script>
 
 <?php require_once __DIR__ . '/../includes/footer.php'; ?>

@@ -453,16 +453,9 @@ $noAuto = 'SUB-' . date('ymd') . '-' . str_pad($nextNum, 4, '0', STR_PAD_LEFT);
 
                 <div class="form-row">
                     <div class="form-group">
-                        <label>Kontak Person <span class="required">*</span></label>
-                        <input type="text" name="kontak_person" class="form-control" required placeholder="Nama penanggung jawab">
-                    </div>
-                    <div class="form-group">
                         <label>Email <span class="required">*</span></label>
                         <input type="email" name="email" class="form-control" required placeholder="email@perusahaan.com">
                     </div>
-                </div>
-
-                <div class="form-row">
                     <div class="form-group">
                         <label>No. Telepon <span class="required">*</span></label>
                         <input type="tel" name="telepon" class="form-control" required placeholder="0812-3456-7890">
