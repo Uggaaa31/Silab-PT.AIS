@@ -36,6 +36,7 @@ $xrfList    = [];
 
 try {
     $totalCount = (int)$pdo->query("SELECT COUNT(*) FROM xrf_measurements")->fetchColumn();
+    $todayCount = (int)$pdo->query("SELECT COUNT(*) FROM xrf_measurements WHERE DATE(test_date) = CURDATE()")->fetchColumn();
     $devFromMeasurements = $pdo->query("SELECT DISTINCT device_id FROM xrf_measurements WHERE device_id IS NOT NULL AND device_id != ''")->fetchAll(PDO::FETCH_COLUMN);
     $devFromTable = [];
     try {
