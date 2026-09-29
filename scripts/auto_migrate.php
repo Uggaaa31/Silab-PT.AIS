@@ -19,6 +19,7 @@ for ($i = 0; $i < $maxTries; $i++) {
             PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
             PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
             PDO::ATTR_TIMEOUT => 3,
+            PDO::MYSQL_ATTR_MULTI_STATEMENTS => true,
         ]);
         break;
     } catch (PDOException $e) {
@@ -67,24 +68,37 @@ try {
     if ($xrfCount === 0 && file_exists($dumpFile)) {
         echo "[Auto Migrate] Tabel xrf_measurements kosong. Mengimpor xrf_data_dump.sql (2081 measurements)...\n";
         
-        $cmd = sprintf(
-            'mysql -h %s -P %s -u %s %s %s < %s 2>&1',
-            escapeshellarg($host),
-            escapeshellarg($port),
-            escapeshellarg($user),
-            $pass !== '' ? '-p' . escapeshellarg($pass) : '',
-            escapeshellarg($dbname),
-            escapeshellarg($dumpFile)
-        );
-        exec($cmd, $output, $ret);
+        $imported = false;
         
-        if ($ret === 0) {
-            echo "[Auto Migrate] Berhasil mengimpor data XRF via MySQL client!\n";
-        } else {
-            echo "[Auto Migrate] MySQL CLI error: " . implode(" ", $output) . ". Mencoba fallback via PDO multi-query...\n";
+        // Coba metode 1: MySQL CLI dengan ssl disabled
+        $cliOptions = ['--ssl-mode=DISABLED', '--skip-ssl', ''];
+        foreach ($cliOptions as $opt) {
+            $cmd = sprintf(
+                'mysql %s -h %s -P %s -u %s %s %s < %s 2>&1',
+                $opt,
+                escapeshellarg($host),
+                escapeshellarg($port),
+                escapeshellarg($user),
+                $pass !== '' ? '-p' . escapeshellarg($pass) : '',
+                escapeshellarg($dbname),
+                escapeshellarg($dumpFile)
+            );
+            $output = [];
+            exec($cmd, $output, $ret);
+            if ($ret === 0) {
+                echo "[Auto Migrate] Berhasil mengimpor data XRF via MySQL CLI (opsi: {$opt})!\n";
+                $imported = true;
+                break;
+            }
+        }
+        
+        // Coba metode 2: Fallback via PDO jika CLI gagal
+        if (!$imported) {
+            echo "[Auto Migrate] Mencoba impor via PDO multi-query...\n";
             $sqlContent = file_get_contents($dumpFile);
             $pdo->exec($sqlContent);
             echo "[Auto Migrate] Berhasil mengimpor data XRF via PDO!\n";
+            $imported = true;
         }
     } else {
         echo "[Auto Migrate] Data XRF sudah ada ({$xrfCount} measurements). Tidak perlu impor ulang.\n";
