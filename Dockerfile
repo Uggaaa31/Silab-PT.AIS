@@ -3,7 +3,7 @@ FROM php:8.2-apache
 # Set non-interactive mode for apt
 ENV DEBIAN_FRONTEND=noninteractive
 
-# Install system dependencies & libraries required for PHP extensions (GD, Zip, PDO MySQL)
+# Install system dependencies & libraries required for PHP extensions (GD, Zip, PDO MySQL) and default-mysql-client for auto-migration
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libpng-dev \
     libjpeg62-turbo-dev \
@@ -12,6 +12,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     zip \
     unzip \
     curl \
+    default-mysql-client \
     && docker-php-ext-configure gd --with-freetype --with-jpeg \
     && docker-php-ext-install -j$(nproc) pdo_mysql gd zip opcache \
     && apt-get clean \
@@ -47,6 +48,11 @@ WORKDIR /var/www/html
 # Copy application source code
 COPY . /var/www/html/
 
+# Copy and setup entrypoint script for auto-migration and startup
+COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+RUN sed -i 's/\r$//' /usr/local/bin/docker-entrypoint.sh \
+    && chmod +x /usr/local/bin/docker-entrypoint.sh
+
 # Ensure directories for dynamic uploads/exports exist and install composer dependencies
 RUN mkdir -p /var/www/html/exports /var/www/html/scratch \
     && if [ -f "composer.json" ]; then \
@@ -58,4 +64,5 @@ RUN mkdir -p /var/www/html/exports /var/www/html/scratch \
 
 EXPOSE 80
 
+ENTRYPOINT ["docker-entrypoint.sh"]
 CMD ["apache2-foreground"]
