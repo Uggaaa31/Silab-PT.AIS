@@ -419,7 +419,7 @@ require_once __DIR__ . '/../includes/header.php';
         <div class="card">
             <div class="card-title">&#128176; Daftar Tarif Aktif</div>
             <table class="data-table">
-                <thead>32tr<th>Nama Layanan</th><th>Metode</th><th>Satuan</th><th style="text-align:right">Harga (Rp)</th></tr></thead>
+                <thead><tr><th>Nama Layanan</th><th>Metode</th><th>Satuan</th><th style="text-align:right">Harga (Rp)</th></tr></thead>
                 <tbody>
                 <?php foreach ($tarifList as $t): ?>
                 <tr>
