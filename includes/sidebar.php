@@ -23,11 +23,35 @@ if (isClient()) {
         $menu[] = ['href' => 'penerimaan.php',  'ico' => '&#128230;', 'label' => 'Penerimaan Sampel'];
     }
     
-    $menu[] = ['href' => 'work_order.php',  'ico' => '&#128203;', 'label' => 'Work Order'];
+    $woBadge = '';
+    if (isAnalis() && isset($pdo)) {
+        try {
+            $analisId = (int)($_SESSION['user_id'] ?? 0);
+            $stmtWoBadge = $pdo->prepare("SELECT COUNT(*) FROM work_order WHERE analis_id = ? AND status = 'aktif'");
+            $stmtWoBadge->execute([$analisId]);
+            $cWo = (int)$stmtWoBadge->fetchColumn();
+            if ($cWo > 0) {
+                $woBadge = ' <span style="background:var(--accent);color:#04240d;padding:1px 7px;border-radius:10px;font-size:0.65rem;font-weight:700;margin-left:auto">' . $cWo . '</span>';
+            }
+        } catch (Exception $e) {}
+    }
+    $menu[] = ['href' => 'work_order.php',  'ico' => '&#128203;', 'label' => 'Work Order' . $woBadge];
     
     // Tambahkan menu Preparasi dan QC hanya untuk non-admin
     if (!isAdmin()) {
-        $menu[] = ['href' => 'preparasi.php',   'ico' => '&#128260;', 'label' => 'Preparasi'];
+        $prepBadge = '';
+        if (isAnalis() && isset($pdo)) {
+            try {
+                $analisId = (int)($_SESSION['user_id'] ?? 0);
+                $stmtPrepBadge = $pdo->prepare("SELECT COUNT(*) FROM work_order WHERE analis_id = ? AND status = 'aktif' AND butuh_preparasi = 1");
+                $stmtPrepBadge->execute([$analisId]);
+                $cPrep = (int)$stmtPrepBadge->fetchColumn();
+                if ($cPrep > 0) {
+                    $prepBadge = ' <span style="background:var(--accent);color:#04240d;padding:1px 7px;border-radius:10px;font-size:0.65rem;font-weight:700;margin-left:auto">' . $cPrep . '</span>';
+                }
+            } catch (Exception $e) {}
+        }
+        $menu[] = ['href' => 'preparasi.php',   'ico' => '&#128260;', 'label' => 'Preparasi' . $prepBadge];
         $menu[] = ['href' => 'qc.php',          'ico' => '&#10003;',  'label' => 'QC &amp; Validasi'];
     }
     
@@ -45,8 +69,17 @@ if (isClient()) {
     
     // Tambahkan menu admin
     if (isAdmin()) {
+        $ssfPendingBadge = '';
+        if ($pdo) {
+            try {
+                $countSsf = (int)$pdo->query("SELECT COUNT(*) FROM submission_sampel WHERE status IN ('diterima', 'pending')")->fetchColumn();
+                if ($countSsf > 0) {
+                    $ssfPendingBadge = ' <span style="background:#25d366;color:#04240d;padding:1px 7px;border-radius:10px;font-size:0.65rem;font-weight:700;margin-left:auto">' . $countSsf . '</span>';
+                }
+            } catch (Exception $e) {}
+        }
         $menu[] = ['href' => 'xrf_data.php', 'ico' => '⚡', 'label' => 'Data XRF Explorer'];
-        $menu[] = ['href' => 'submission.php', 'ico' => '📋', 'label' => 'Online Submissions'];
+        $menu[] = ['href' => 'submission.php', 'ico' => '📋', 'label' => 'Permintaan SSF' . $ssfPendingBadge];
         $menu[] = ['href' => 'metode_preparasi.php', 'ico' => '🧪', 'label' => 'Metode Preparasi'];
         $menu[] = ['href' => 'pengguna.php', 'ico' => '&#128101;', 'label' => 'Pengguna'];
     }
@@ -61,9 +94,10 @@ $cur = basename($_SERVER['PHP_SELF']);
     <nav>
         <?php foreach ($menu as $m): ?>
             <a href="<?= BASE_URL ?>/pages/<?= $m['href'] ?>"
-               class="<?= $cur === $m['href'] ? 'active' : '' ?>">
+               class="<?= $cur === $m['href'] ? 'active' : '' ?>"
+               style="display:flex;align-items:center;">
                 <span class="ico"><?= $m['ico'] ?></span>
-                <?= $m['label'] ?>
+                <span style="flex:1;display:flex;align-items:center;justify-content:space-between"><?= $m['label'] ?></span>
             </a>
         <?php endforeach; ?>
     </nav>

@@ -41,83 +41,7 @@ if ($cek->fetch()) {
 try {
     $pdo->beginTransaction();
 
-    // 1. Generate nomor penerimaan
-    $lastRec = $pdo->query("SELECT nomor_penerimaan FROM penerimaan_sampel ORDER BY id DESC LIMIT 1")->fetchColumn();
-    $nextRecNum = $lastRec ? (intval(substr($lastRec, -3)) + 1) : 1;
-    $noPenerimaan = 'REC-' . date('ym') . '-' . str_pad($nextRecNum, 3, '0', STR_PAD_LEFT);
-
-    // Kumpulkan material & metode unik
-    $materialsArr = [];
-    $metodeArr = [];
-    foreach ($sampelInput as $s) {
-        if (!empty($s['jenis_material'])) $materialsArr[] = trim($s['jenis_material']);
-        if (!empty($s['metode_uji']))     $metodeArr[]    = trim($s['metode_uji']);
-    }
-    $materialStr = implode(', ', array_unique(array_filter($materialsArr)));
-    $metodeStr   = implode(', ', array_unique(array_filter($metodeArr)));
-
-    // 2. Keterangan penerimaan
-    $keteranganRec = 'Dari SSF: ' . $nomorSubmission;
-    if (!empty($instruksiKhusus)) {
-        $keteranganRec .= ' | Instruksi: ' . $instruksiKhusus;
-    }
-    if (!empty($catatan)) {
-        $keteranganRec .= ' | Catatan: ' . $catatan;
-    }
-
-    // 3. Insert ke penerimaan_sampel
-    $stmtRec = $pdo->prepare("
-        INSERT INTO penerimaan_sampel 
-        (nomor_penerimaan, klien, tanggal_terima, jumlah_sampel, jenis_material, metode_uji, keterangan, status, dibuat_oleh)
-        VALUES (?, ?, ?, ?, ?, ?, ?, 'diterima', ?)
-    ");
-    $stmtRec->execute([
-        $noPenerimaan,
-        $klien,
-        date('Y-m-d'),
-        count($sampelInput),
-        $materialStr,
-        $metodeStr,
-        $keteranganRec,
-        $_SESSION['user_id'] ?? null
-    ]);
-    $penerimaanId = $pdo->lastInsertId();
-
-    // 4. Generate kode sampel berikutnya
-    $prefix = 'S-' . date('ym') . '-';
-    $lastKode = $pdo->prepare("SELECT kode_sampel FROM sampel WHERE kode_sampel LIKE ? ORDER BY kode_sampel DESC LIMIT 1");
-    $lastKode->execute([$prefix . '%']);
-    $lastKodeStr = $lastKode->fetchColumn();
-    $nextKodeNum = $lastKodeStr ? (intval(substr($lastKodeStr, -3)) + 1) : 1;
-
-    // 5. Insert sampel individual
-    $stmtSampel = $pdo->prepare("
-        INSERT INTO sampel 
-        (penerimaan_id, kode_sampel, tanggal_masuk, jenis_material, berat_gram, klien, metode_uji, keterangan, status, dibuat_oleh)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'antrian', ?)
-    ");
-
-    foreach ($sampelInput as $s) {
-        $kodeSampel = 'S-' . date('ym') . '-' . str_pad($nextKodeNum, 3, '0', STR_PAD_LEFT);
-        $ket = trim($s['keterangan'] ?? '');
-        if (!empty($s['parameter'])) {
-            $ket = ($ket !== '' ? $ket . ' | ' : '') . 'Param: ' . trim($s['parameter']);
-        }
-        $stmtSampel->execute([
-            $penerimaanId,
-            $kodeSampel,
-            date('Y-m-d'),
-            trim($s['jenis_material'] ?? ''),
-            !empty($s['berat_gram']) ? (float)$s['berat_gram'] : null,
-            $klien,
-            trim($s['metode_uji'] ?? ''),
-            $ket,
-            $_SESSION['user_id'] ?? null
-        ]);
-        $nextKodeNum++;
-    }
-    
-    // 6. Insert ke tabel submission_sampel (status 'diterima')
+    // 1. Insert ke tabel submission_sampel (status 'diterima' oleh sistem)
     $stmtSub = $pdo->prepare("
         INSERT INTO submission_sampel 
         (nomor_submission, klien, kontak_person, email, telepon, alamat, 
@@ -137,7 +61,7 @@ try {
     ]);
     $submissionId = $pdo->lastInsertId();
     
-    // 7. Insert detail submission
+    // 2. Insert detail submission
     $stmtDetail = $pdo->prepare("
         INSERT INTO submission_sampel_detail 
         (submission_id, jenis_material, berat_gram, metode_uji, parameter, keterangan)
@@ -145,28 +69,47 @@ try {
     ");
     
     foreach ($sampelInput as $s) {
+        $paramArr = [];
+        if (!empty($s['parameter'])) {
+            if (is_array($s['parameter'])) {
+                $paramArr = $s['parameter'];
+            } else {
+                $paramArr = array_map('trim', explode(',', $s['parameter']));
+            }
+        }
+        $paramLainnya = trim($s['parameter_lainnya'] ?? '');
+        if ($paramLainnya !== '') {
+            $keyLainnya = array_search('Lainnya', $paramArr);
+            if ($keyLainnya !== false) {
+                $paramArr[$keyLainnya] = $paramLainnya;
+            } elseif (!in_array($paramLainnya, $paramArr)) {
+                $paramArr[] = $paramLainnya;
+            }
+        }
+        $paramStr = implode(', ', array_filter(array_map('trim', $paramArr)));
+
         $stmtDetail->execute([
             $submissionId,
             trim($s['jenis_material'] ?? ''),
             !empty($s['berat_gram']) ? (float)$s['berat_gram'] : null,
             trim($s['metode_uji'] ?? ''),
-            trim($s['parameter'] ?? ''),
+            $paramStr,
             trim($s['keterangan'] ?? '')
         ]);
     }
     
     $pdo->commit();
 
-    // 8. Buat/tautkan akun client access untuk monitoring status
+    // 3. Buat/tautkan akun client access untuk monitoring status (penerimaan_id diisi setelah admin menginput penerimaan)
     $clientAccount = createClientAccountForAccess($pdo, [
         'kode_akses' => $nomorSubmission,
         'submission_id' => $submissionId,
-        'penerimaan_id' => $penerimaanId,
+        'penerimaan_id' => null,
         'klien' => $klien,
         'email' => $email,
     ]);
 
-    $_SESSION['success'] = "Formulir pengajuan sampel berhasil dikirim. Nomor Submission: $nomorSubmission (No. Penerimaan: $noPenerimaan). Data telah langsung masuk ke Daftar Penerimaan Sampel.";
+    $_SESSION['success'] = "Formulir permohonan pengujian sampel berhasil dikirim. Nomor Submission: $nomorSubmission. Status pengajuan: Diterima Sistem. Admin laboratorium akan segera menghubungi Anda via WhatsApp untuk konfirmasi pengiriman sampel fisik.";
     $_SESSION['submission_no'] = $nomorSubmission;
     if ($clientAccount['created'] ?? false) {
         $_SESSION['client_credentials'] = $clientAccount;

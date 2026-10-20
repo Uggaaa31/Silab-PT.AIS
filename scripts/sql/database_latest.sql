@@ -342,7 +342,7 @@ CREATE TABLE IF NOT EXISTS submission_sampel_detail (
     jenis_material  VARCHAR(100) NOT NULL,
     berat_gram      DECIMAL(10,3),
     metode_uji      VARCHAR(50),
-    parameter       VARCHAR(100),
+    parameter       VARCHAR(255),
     keterangan      TEXT,
     created_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT fk_submission_detail_submission FOREIGN KEY (submission_id) REFERENCES submission_sampel(id) ON DELETE CASCADE

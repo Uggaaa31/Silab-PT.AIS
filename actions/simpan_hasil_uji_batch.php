@@ -18,13 +18,50 @@ if (empty($rows)) {
     header('Location: '.BASE_URL.'/pages/pengujian.php?tab=batch'); exit;
 }
 
-// Hitung berapa baris valid terlebih dahulu
-$validRows = array_filter($rows, fn($r) =>
-    !empty($r['sampel_id']) && trim($r['parameter'] ?? '') !== '' && isset($r['nilai']) && $r['nilai'] !== ''
-);
+// Siapkan daftar baris valid (mendukung format horizontal matrix maupun legacy flat)
+$validRows = [];
+foreach ($rows as $r) {
+    $sampelId = (int)($r['sampel_id'] ?? 0);
+    if ($sampelId <= 0) continue;
+
+    $noRef  = !empty($r['no_referensi']) ? trim($r['no_referensi']) : null;
+    $metode = !empty($r['metode']) ? trim($r['metode']) : 'XRF';
+    $kes    = !empty($r['kesimpulan']) ? trim($r['kesimpulan']) : 'pending';
+    $satuan = !empty($r['satuan']) ? trim($r['satuan']) : '%';
+
+    // 1. Format Matrix Horizontal: $r['nilai'] berupa array [paramName => val]
+    if (isset($r['nilai']) && is_array($r['nilai'])) {
+        foreach ($r['nilai'] as $paramName => $val) {
+            $valStr = trim((string)$val);
+            if ($valStr !== '' && is_numeric($valStr)) {
+                $validRows[] = [
+                    'sampel_id'    => $sampelId,
+                    'no_referensi' => $noRef,
+                    'parameter'    => trim((string)$paramName),
+                    'nilai'        => (float)$valStr,
+                    'satuan'       => $satuan,
+                    'metode'       => $metode,
+                    'kesimpulan'   => $kes,
+                ];
+            }
+        }
+    }
+    // 2. Format Legacy: baris tunggal (parameter & nilai skalar)
+    elseif (!empty($r['parameter']) && isset($r['nilai']) && trim((string)$r['nilai']) !== '' && is_numeric($r['nilai'])) {
+        $validRows[] = [
+            'sampel_id'    => $sampelId,
+            'no_referensi' => $noRef,
+            'parameter'    => trim((string)$r['parameter']),
+            'nilai'        => (float)$r['nilai'],
+            'satuan'       => $satuan,
+            'metode'       => $metode,
+            'kesimpulan'   => $kes,
+        ];
+    }
+}
 
 if (empty($validRows)) {
-    $_SESSION['msg'] = 'ERROR: Tidak ada baris valid (sampel, parameter, dan nilai wajib diisi).';
+    $_SESSION['msg'] = 'ERROR: Tidak ada data hasil uji yang valid untuk disimpan (sampel, unsur parameter, dan nilai wajib diisi).';
     header('Location: '.BASE_URL.'/pages/pengujian.php?tab=batch'); exit;
 }
 

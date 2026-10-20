@@ -103,8 +103,11 @@ if ($processSubmission) {
                     foreach ($sampelDetails as $detail) {
                         $kodeSampel = 'S-' . date('ym') . '-' . str_pad($nextKodeNum, 3, '0', STR_PAD_LEFT);
                         $sampelKeterangan = $detail['keterangan'] ?? '';
+                        if (!empty($detail['parameter'])) {
+                            $sampelKeterangan = ($sampelKeterangan ? $sampelKeterangan . ' | ' : '') . 'Param: ' . $detail['parameter'];
+                        }
                         if (!empty($submission['nomor_submission'])) {
-                            $sampelKeterangan .= ' (dari submission: ' . $submission['nomor_submission'] . ')';
+                            $sampelKeterangan .= ($sampelKeterangan ? ' ' : '') . '(dari submission: ' . $submission['nomor_submission'] . ')';
                         }
                         
                         $stmtSampel->execute([
@@ -193,8 +196,8 @@ if ($fromSubmission) {
         $msg = 'ERROR: Tabel submission belum tersedia. Jalankan scripts/sql/patch_client_role.sql terlebih dahulu.';
         $fromSubmission = 0;
     } else {
-        // Ambil data submission
-        $subStmt = $pdo->prepare("SELECT * FROM submission_sampel WHERE id = ? AND status = 'diterima'");
+        // Ambil data submission (status diterima sistem atau pending)
+        $subStmt = $pdo->prepare("SELECT * FROM submission_sampel WHERE id = ? AND status IN ('diterima', 'pending')");
         $subStmt->execute([$fromSubmission]);
         $submissionData = $subStmt->fetch();
         
@@ -205,9 +208,9 @@ if ($fromSubmission) {
             $submissionSampel = $detailStmt->fetchAll();
             
             // Tampilkan pesan info
-            $msg = '<strong>📋 Data dari Submission:</strong> ' . bersihkan($submissionData['nomor_submission']) . 
-                   ' - ' . bersihkan($submissionData['klien']) . 
-                   ' (' . count($submissionSampel) . ' sampel)';
+            $msg = '<strong>📋 Data dari SSF:</strong> ' . bersihkan($submissionData['nomor_submission']) . 
+                   ' &bull; ' . bersihkan($submissionData['klien']) . 
+                   ' (' . count($submissionSampel) . ' sampel). Silakan verifikasi fisik sampel lalu simpan penerimaan.';
             
             // Auto-set tab ke batch untuk memudahkan input
             $tab = 'batch';
@@ -221,8 +224,16 @@ if ($fromSubmission) {
             $prefillPoReferensi = $submissionData['po_referensi'];
             $prefillInstruksi = $submissionData['instruksi_khusus'];
             $prefillCatatan = $submissionData['catatan'];
+            
+            $prefillKeterangan = 'Dari SSF: ' . $submissionData['nomor_submission'];
+            if (!empty($submissionData['instruksi_khusus'])) {
+                $prefillKeterangan .= ' | Instruksi: ' . $submissionData['instruksi_khusus'];
+            }
+            if (!empty($submissionData['catatan'])) {
+                $prefillKeterangan .= ' | Catatan: ' . $submissionData['catatan'];
+            }
         } else {
-            $msg = 'ERROR: Submission tidak ditemukan atau belum diterima.';
+            $msg = 'ERROR: Submission tidak ditemukan atau sudah selesai diproses.';
             $fromSubmission = 0;
         }
     }
@@ -541,7 +552,7 @@ require_once __DIR__ . '/../includes/header.php';
                 </div>
                 <div class="form-group">
                     <label>Keterangan Batch</label>
-                    <textarea name="keterangan" rows="1" placeholder="Catatan penerimaan..."><?= isset($prefillCatatan) ? bersihkan($prefillCatatan) : '' ?></textarea>
+                    <textarea name="keterangan" rows="2" placeholder="Catatan penerimaan..."><?= isset($prefillKeterangan) ? bersihkan($prefillKeterangan) : (isset($prefillCatatan) ? bersihkan($prefillCatatan) : '') ?></textarea>
                 </div>
             </div>
             
@@ -619,12 +630,17 @@ function updateBatchCount() {
 // Inisialisasi: tambah baris batch (dengan data dari submission jika ada)
 document.addEventListener('DOMContentLoaded', function() {
     <?php if ($submissionSampel): ?>
-    <?php foreach ($submissionSampel as $idx => $s): ?>
+    <?php foreach ($submissionSampel as $idx => $s): 
+        $rowKet = trim($s['keterangan'] ?? '');
+        if (!empty($s['parameter'])) {
+            $rowKet = ($rowKet ? $rowKet . ' | ' : '') . 'Param: ' . $s['parameter'];
+        }
+    ?>
     tambahBarisBatch(
         '<?= addslashes($s['jenis_material']) ?>',
         '<?= $s['berat_gram'] ?>',
         '<?= addslashes($s['metode_uji']) ?>',
-        '<?= addslashes($s['keterangan']) ?>'
+        '<?= addslashes($rowKet) ?>'
     );
     <?php endforeach; ?>
     <?php else: ?>

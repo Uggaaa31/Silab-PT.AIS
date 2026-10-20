@@ -246,6 +246,10 @@ try {
 
     $pdo->commit();
 
+    if ($fromSubmission > 0) {
+        attachClientAccessToPenerimaan($pdo, $fromSubmission, (int)$penerimaanId);
+    }
+
     $jumlah = count($kodeList);
     $kodeStr = implode(', ', $kodeList);
     $_SESSION['msg'] = "Penerimaan $noPenerimaan berhasil disimpan. $jumlah sampel dibuat: $kodeStr.";

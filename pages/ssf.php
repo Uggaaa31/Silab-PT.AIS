@@ -302,6 +302,106 @@ $noAuto = 'SUB-' . date('ymd') . '-' . str_pad($nextNum, 4, '0', STR_PAD_LEFT);
             margin-right: 8px;
         }
 
+        /* ── PARAMETER MULTI-SELECT CHIPS ── */
+        .param-container {
+            margin-top: 6px;
+        }
+        .param-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+        .param-header label {
+            margin-bottom: 0 !important;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            cursor: default;
+        }
+        .param-count-badge {
+            display: inline-flex;
+            align-items: center;
+            font-size: 11px;
+            text-transform: none;
+            font-weight: 600;
+            color: var(--text-dim);
+            background: rgba(255, 255, 255, 0.04);
+            padding: 2px 9px;
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            transition: all 0.2s;
+        }
+        .param-quick-btns {
+            display: flex;
+            gap: 6px;
+        }
+        .btn-param-quick {
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid var(--border);
+            color: var(--text-muted);
+            padding: 3px 10px;
+            border-radius: 5px;
+            font-size: 11px;
+            cursor: pointer;
+            font-family: inherit;
+            transition: all 0.2s;
+        }
+        .btn-param-quick:hover {
+            color: var(--gold-light);
+            border-color: var(--gold-dim);
+            background: rgba(232, 180, 0, 0.1);
+        }
+        .param-chips-grid {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            background: var(--bg-base);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 12px;
+            min-height: 48px;
+        }
+        .param-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 7px 13px;
+            background: rgba(17, 36, 22, 0.85);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            color: var(--text-muted);
+            font-size: 13px;
+            cursor: pointer;
+            transition: all 0.18s ease;
+            user-select: none;
+        }
+        .param-chip:hover {
+            border-color: var(--border-glow);
+            color: var(--text-main);
+            background: rgba(25, 52, 32, 0.95);
+            transform: translateY(-1px);
+        }
+        .param-chip input[type="checkbox"] {
+            accent-color: var(--gold);
+            width: 15px;
+            height: 15px;
+            margin: 0;
+            cursor: pointer;
+        }
+        .param-chip.active {
+            background: rgba(232, 180, 0, 0.16);
+            border-color: var(--gold);
+            color: var(--gold-light);
+            font-weight: 500;
+            box-shadow: 0 0 10px rgba(232, 180, 0, 0.12);
+        }
+        .param-lainnya-wrap {
+            margin-top: 10px;
+        }
+
         /* ── ACTIONS ── */
         .form-actions {
             display: flex;
@@ -529,6 +629,18 @@ $noAuto = 'SUB-' . date('ymd') . '-' . str_pad($nextNum, 4, '0', STR_PAD_LEFT);
             return arr.map(v => `<option value="${v}">${v}</option>`).join('');
         }
 
+        function buildParamChips(idx, opts) {
+            return opts.map((p, pIdx) => {
+                const safeVal = p.replace(/"/g, '&quot;');
+                return `
+                    <label class="param-chip" id="paramChip_${idx}_${pIdx}">
+                        <input type="checkbox" name="sampel[${idx}][parameter][]" value="${safeVal}" onchange="handleParamToggle(${idx}, this)">
+                        <span>${p}</span>
+                    </label>
+                `;
+            }).join('');
+        }
+
         function addSampleRow() {
             if (sampleCount >= 10) {
                 alert('Maksimal 10 sampel per pengiriman.');
@@ -547,8 +659,8 @@ $noAuto = 'SUB-' . date('ymd') . '-' . str_pad($nextNum, 4, '0', STR_PAD_LEFT);
                 </div>
                 <div class="form-row">
                     <div class="form-group">
-                        <label>Jenis Material</label>
-                        <select name="sampel[${idx}][jenis_material]" class="form-control">
+                        <label>Jenis Material <span class="required">*</span></label>
+                        <select name="sampel[${idx}][jenis_material]" class="form-control" required>
                             <option value="">— Pilih —</option>
                             ${buildOptions(materialOpts)}
                         </select>
@@ -560,26 +672,99 @@ $noAuto = 'SUB-' . date('ymd') . '-' . str_pad($nextNum, 4, '0', STR_PAD_LEFT);
                 </div>
                 <div class="form-row">
                     <div class="form-group">
-                        <label>Metode Uji yang Diminta</label>
-                        <select name="sampel[${idx}][metode_uji]" class="form-control">
+                        <label>Metode Uji yang Diminta <span class="required">*</span></label>
+                        <select name="sampel[${idx}][metode_uji]" class="form-control" required>
                             <option value="">— Pilih —</option>
                             ${buildOptions(metodeOpts)}
                         </select>
                     </div>
                     <div class="form-group">
-                        <label>Parameter yang Diuji</label>
-                        <select name="sampel[${idx}][parameter]" class="form-control">
-                            <option value="">— Pilih —</option>
-                            ${buildOptions(parameterOpts)}
-                        </select>
+                        <label>Keterangan / Kode Sampel <span style="text-transform:none;font-weight:400;opacity:.6">(opsional)</span></label>
+                        <input type="text" name="sampel[${idx}][keterangan]" class="form-control" placeholder="Kode sampel atau keterangan tambahan">
                     </div>
                 </div>
-                <div class="form-group" style="margin-bottom:0">
-                    <label>Keterangan / Kode Sampel <span style="text-transform:none;font-weight:400;opacity:.6">(opsional)</span></label>
-                    <input type="text" name="sampel[${idx}][keterangan]" class="form-control" placeholder="Kode sampel atau keterangan tambahan">
+                <div class="form-group param-container" style="margin-bottom:0">
+                    <div class="param-header">
+                        <label>
+                            Parameter yang Diuji <span class="required">*</span>
+                            <span class="param-count-badge" id="paramCountBadge_${idx}">0 parameter dipilih</span>
+                        </label>
+                        <div class="param-quick-btns">
+                            <button type="button" class="btn-param-quick" onclick="toggleAllParams(${idx}, true)">+ Pilih Semua</button>
+                            <button type="button" class="btn-param-quick" onclick="toggleAllParams(${idx}, false)">↺ Reset</button>
+                        </div>
+                    </div>
+                    <div class="param-chips-grid" id="paramChips_${idx}">
+                        ${buildParamChips(idx, parameterOpts)}
+                    </div>
+                    <div class="param-lainnya-wrap" id="paramLainnyaWrap_${idx}" style="display:none">
+                        <input type="text" name="sampel[${idx}][parameter_lainnya]" id="paramLainnyaInput_${idx}" class="form-control" placeholder="Tuliskan nama parameter lainnya (misal: Pt, Pd, Co, TiO2)...">
+                    </div>
                 </div>
             `;
             container.appendChild(div);
+        }
+
+        function handleParamToggle(idx, cb) {
+            const chip = cb.closest('.param-chip');
+            if (chip) {
+                if (cb.checked) {
+                    chip.classList.add('active');
+                } else {
+                    chip.classList.remove('active');
+                }
+            }
+            updateParamCount(idx);
+
+            if (cb.value === 'Lainnya') {
+                const wrap = document.getElementById('paramLainnyaWrap_' + idx);
+                const input = document.getElementById('paramLainnyaInput_' + idx);
+                if (wrap) {
+                    wrap.style.display = cb.checked ? 'block' : 'none';
+                    if (cb.checked && input) {
+                        setTimeout(() => input.focus(), 60);
+                    }
+                }
+            }
+        }
+
+        function updateParamCount(idx) {
+            const row = document.getElementById('sampleRow_' + idx);
+            if (!row) return;
+            const checked = row.querySelectorAll('input[type="checkbox"][name*="[parameter]"]:checked');
+            const badge = document.getElementById('paramCountBadge_' + idx);
+            if (badge) {
+                const cnt = checked.length;
+                badge.textContent = cnt === 1 ? '1 parameter dipilih' : cnt + ' parameter dipilih';
+                if (cnt > 0) {
+                    badge.style.color = 'var(--gold-light)';
+                    badge.style.background = 'rgba(232, 180, 0, 0.16)';
+                    badge.style.borderColor = 'rgba(232, 180, 0, 0.4)';
+                } else {
+                    badge.style.color = 'var(--text-dim)';
+                    badge.style.background = 'rgba(255, 255, 255, 0.04)';
+                    badge.style.borderColor = 'var(--border)';
+                }
+            }
+        }
+
+        function toggleAllParams(idx, selectAll) {
+            const row = document.getElementById('sampleRow_' + idx);
+            if (!row) return;
+            const cbs = row.querySelectorAll('input[type="checkbox"][name*="[parameter]"]');
+            cbs.forEach(cb => {
+                cb.checked = selectAll;
+                const chip = cb.closest('.param-chip');
+                if (chip) {
+                    if (selectAll) chip.classList.add('active');
+                    else chip.classList.remove('active');
+                }
+            });
+            const wrap = document.getElementById('paramLainnyaWrap_' + idx);
+            if (wrap) {
+                wrap.style.display = selectAll ? 'block' : 'none';
+            }
+            updateParamCount(idx);
         }
 
         function removeSampleRow(id) {
@@ -592,7 +777,45 @@ $noAuto = 'SUB-' . date('ymd') . '-' . str_pad($nextNum, 4, '0', STR_PAD_LEFT);
             sampleCount--;
         }
 
-        document.addEventListener('DOMContentLoaded', () => addSampleRow());
+        document.addEventListener('DOMContentLoaded', () => {
+            addSampleRow();
+
+            // Validasi sebelum submit: pastikan setiap baris sampel memiliki minimal 1 parameter
+            document.getElementById('submissionForm')?.addEventListener('submit', function(e) {
+                const sampleRows = document.querySelectorAll('.sample-row');
+                if (sampleRows.length === 0) {
+                    e.preventDefault();
+                    alert('Minimal 1 sampel harus diisi.');
+                    return false;
+                }
+                for (let i = 0; i < sampleRows.length; i++) {
+                    const row = sampleRows[i];
+                    const checked = row.querySelectorAll('input[type="checkbox"][name*="[parameter]"]:checked');
+                    const customInput = row.querySelector('input[name*="[parameter_lainnya]"]');
+                    const customVal = customInput ? customInput.value.trim() : '';
+                    if (checked.length === 0 && !customVal) {
+                        e.preventDefault();
+                        alert(`Silakan pilih minimal 1 parameter yang diuji untuk Sampel #${i + 1}.`);
+                        row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        return false;
+                    }
+                }
+            });
+
+            // Reset listener
+            document.getElementById('submissionForm')?.addEventListener('reset', function() {
+                setTimeout(() => {
+                    document.querySelectorAll('.param-chip').forEach(c => c.classList.remove('active'));
+                    document.querySelectorAll('.param-lainnya-wrap').forEach(w => w.style.display = 'none');
+                    document.querySelectorAll('[id^="paramCountBadge_"]').forEach(b => {
+                        b.textContent = '0 parameter dipilih';
+                        b.style.color = 'var(--text-dim)';
+                        b.style.background = 'rgba(255, 255, 255, 0.04)';
+                        b.style.borderColor = 'var(--border)';
+                    });
+                }, 50);
+            });
+        });
     </script>
 </body>
 </html>

@@ -86,7 +86,7 @@
                             <td><?= htmlspecialchars($s['jenis_material'] ?? '-') ?></td>
                             <td style="text-align:right"><?= htmlspecialchars($s['berat_gram'] ?? '-') ?></td>
                             <td><?= htmlspecialchars($s['metode_uji'] ?? '-') ?></td>
-                            <td><?= htmlspecialchars($s['parameter'] ?? '-') ?></td>
+                            <td><?= is_array($s['parameter'] ?? null) ? htmlspecialchars(implode(', ', $s['parameter'])) : htmlspecialchars($s['parameter'] ?? '-') ?></td>
                         </tr>
                     <?php endforeach; ?>
                 <?php else: ?>

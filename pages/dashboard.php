@@ -33,6 +33,8 @@ $pctLulus   = $ujiTotal > 0 ? round($ujiLulus / $ujiTotal * 100) : 0;
 // ── NOTIFIKASI WORK ORDER UNTUK ANALIS ────────────────────────
 $woNotifications = [];
 $woCount = 0;
+$woSampelTotal = 0;
+$woPrepCount = 0;
 
 if (isAnalis()) {
     // Ambil Work Order yang ditugaskan ke analis ini dengan status aktif
@@ -49,11 +51,44 @@ if (isAnalis()) {
         ORDER BY 
             FIELD(w.prioritas, 'urgent', 'tinggi', 'normal'),
             w.jadwal_mulai ASC
-        LIMIT 5
+        LIMIT 6
     ");
     $woStmt->execute([$userId]);
     $woNotifications = $woStmt->fetchAll();
-    $woCount = count($woNotifications);
+    
+    $woCountStmt = $pdo->prepare("SELECT COUNT(*) FROM work_order WHERE analis_id = ? AND status = 'aktif'");
+    $woCountStmt->execute([$userId]);
+    $woCount = (int)$woCountStmt->fetchColumn();
+
+    foreach ($woNotifications as $wo) {
+        $woSampelTotal += (int)($wo['jumlah_sampel'] ?? 0);
+        if (!empty($wo['butuh_preparasi'])) {
+            $woPrepCount++;
+        }
+    }
+}
+
+// ── NOTIFIKASI PERMINTAAN SSF UNTUK ADMIN ─────────────────────
+$ssfNotifications = [];
+$ssfTotalCount = 0;
+
+if (isAdmin()) {
+    $ssfTotalCount = (int)$pdo->query("SELECT COUNT(*) FROM submission_sampel WHERE status IN ('diterima', 'pending')")->fetchColumn();
+    if ($ssfTotalCount > 0) {
+        $ssfStmt = $pdo->prepare("
+            SELECT s.*, 
+                   (SELECT COUNT(*) FROM submission_sampel_detail WHERE submission_id = s.id) AS jumlah_sampel,
+                   (SELECT GROUP_CONCAT(DISTINCT jenis_material SEPARATOR ', ') FROM submission_sampel_detail WHERE submission_id = s.id) AS material_list,
+                   (SELECT GROUP_CONCAT(DISTINCT metode_uji SEPARATOR ', ') FROM submission_sampel_detail WHERE submission_id = s.id) AS metode_list,
+                   (SELECT GROUP_CONCAT(DISTINCT parameter SEPARATOR ', ') FROM submission_sampel_detail WHERE submission_id = s.id AND parameter IS NOT NULL AND parameter != '') AS parameter_list
+            FROM submission_sampel s
+            WHERE s.status IN ('diterima', 'pending')
+            ORDER BY s.id DESC
+            LIMIT 5
+        ");
+        $ssfStmt->execute();
+        $ssfNotifications = $ssfStmt->fetchAll();
+    }
 }
 
 // ── Alert ─────────────────────────────────────────────────────
@@ -130,9 +165,9 @@ $alertTotal = (int)($alertData['total'] ?? 0);
 
 if (isAnalis()) {
     $quickActions = [
-        ['href' => 'preparasi.php', 'icon' => '&#128260;', 'label' => 'Preparasi'],
+        ['href' => 'work_order.php', 'icon' => '&#128203;', 'label' => 'Work Order' . ($woCount > 0 ? " ($woCount)" : '')],
         ['href' => 'pengujian.php', 'icon' => '&#128300;', 'label' => 'Pengujian'],
-        ['href' => 'work_order.php', 'icon' => '&#128203;', 'label' => 'Work Order'],
+        ['href' => 'preparasi.php', 'icon' => '&#128260;', 'label' => 'Preparasi' . ($woPrepCount > 0 ? " ($woPrepCount)" : '')],
     ];
 } elseif (isSupervisor()) {
     $quickActions = [
@@ -143,6 +178,7 @@ if (isAnalis()) {
 } else {
     $quickActions = [
         ['href' => 'penerimaan.php', 'icon' => '&#128230;', 'label' => 'Penerimaan'],
+        ['href' => 'submission.php', 'icon' => '📋', 'label' => 'Permintaan SSF' . ($ssfTotalCount > 0 ? " ($ssfTotalCount)" : '')],
         ['href' => 'work_order.php', 'icon' => '&#128203;', 'label' => 'Work Order'],
         ['href' => 'laporan.php', 'icon' => '&#128196;', 'label' => 'Laporan'],
     ];
@@ -604,6 +640,237 @@ require_once __DIR__ . '/../includes/header.php';
         grid-template-columns: 1fr;
     }
 }
+
+/* ── Notifikasi SSF untuk Admin ── */
+.ssf-notification-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+}
+.ssf-notification-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+.ssf-notification-header h4 {
+    margin: 0;
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: var(--text);
+    letter-spacing: 0.5px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+.badge-count-ssf {
+    background: #25d366;
+    color: #04240d;
+    border-radius: 20px;
+    padding: 2px 8px;
+    font-size: 0.62rem;
+    font-weight: 700;
+    box-shadow: 0 0 8px rgba(37, 211, 102, 0.35);
+}
+.ssf-sub-label {
+    font-size: 0.62rem;
+    color: var(--text3);
+}
+.ssf-list {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+.ssf-item {
+    background: var(--bg3);
+    border-radius: 8px;
+    padding: 11px 13px;
+    border: 1px solid var(--border);
+    border-left: 4px solid #25d366;
+    transition: all 0.2s;
+}
+.ssf-item:hover {
+    transform: translateX(2px);
+    background: #173822;
+    border-color: rgba(37, 211, 102, 0.4);
+}
+.ssf-item-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 5px;
+    flex-wrap: wrap;
+    gap: 4px;
+}
+.ssf-no {
+    font-family: monospace;
+    font-weight: 700;
+    color: var(--gold);
+    font-size: 0.8rem;
+}
+.badge-status-sistem {
+    font-size: 0.58rem;
+    padding: 2px 7px;
+    border-radius: 10px;
+    font-weight: 700;
+    background: rgba(52, 152, 219, 0.18);
+    color: #5dade2;
+    border: 1px solid rgba(52, 152, 219, 0.35);
+    text-transform: uppercase;
+}
+.ssf-date {
+    font-size: 0.65rem;
+    color: var(--text3);
+    margin-left: auto;
+}
+.ssf-client-info {
+    font-size: 0.78rem;
+    color: var(--text);
+    margin-bottom: 4px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+.ssf-contact {
+    font-size: 0.7rem;
+    color: var(--text2);
+}
+.ssf-detail {
+    display: flex;
+    gap: 10px;
+    font-size: 0.68rem;
+    color: var(--text3);
+    flex-wrap: wrap;
+    margin-bottom: 6px;
+    background: rgba(0, 0, 0, 0.15);
+    padding: 5px 8px;
+    border-radius: 5px;
+}
+.ssf-notes {
+    font-size: 0.65rem;
+    color: var(--text3);
+    margin-bottom: 8px;
+    background: rgba(240, 192, 64, 0.05);
+    padding: 4px 8px;
+    border-radius: 4px;
+    border-left: 2px solid var(--gold2);
+}
+.ssf-actions {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    margin-top: 6px;
+}
+.btn-ssf {
+    padding: 5px 10px;
+    font-size: 0.68rem;
+    border-radius: 5px;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-weight: 600;
+    transition: 0.2s;
+}
+.btn-ssf-wa {
+    background: #25d366;
+    color: #04240d;
+    font-weight: 700;
+}
+.btn-ssf-wa:hover {
+    background: #1eb956;
+    color: #000;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(37, 211, 102, 0.35);
+}
+.btn-ssf-input {
+    background: var(--gold);
+    color: #1a1000;
+    font-weight: 700;
+}
+.btn-ssf-input:hover {
+    background: var(--gold-light, #f5cc3a);
+    transform: translateY(-1px);
+}
+.btn-ssf-detail {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    color: var(--text2);
+}
+.btn-ssf-detail:hover {
+    border-color: var(--gold2);
+    color: var(--gold);
+}
+.btn-ssf-disabled {
+    background: #2a1b1b;
+    color: #e57373;
+    border: 1px solid #5c2020;
+    font-size: 0.65rem;
+    padding: 5px 8px;
+    border-radius: 5px;
+}
+
+/* Alert Banner di Dashboard */
+.ssf-alert-banner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    padding: 12px 18px;
+    background: linear-gradient(135deg, rgba(37, 211, 102, 0.16), rgba(240, 192, 64, 0.12));
+    border: 1px solid rgba(37, 211, 102, 0.35);
+    border-left: 4px solid #25d366;
+    border-radius: 10px;
+    margin-bottom: 18px;
+    flex-wrap: wrap;
+}
+.ssf-alert-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: #25d366;
+    color: #04240d;
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-size: 0.72rem;
+    font-weight: 700;
+}
+.ssf-alert-msg {
+    flex: 1;
+    font-size: 0.76rem;
+    color: var(--text);
+    line-height: 1.45;
+}
+.btn-alert-action {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--bg3);
+    border: 1px solid var(--gold2);
+    color: var(--gold);
+    padding: 6px 14px;
+    border-radius: 6px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-decoration: none;
+    transition: 0.2s;
+}
+.btn-alert-action:hover {
+    background: var(--gold);
+    color: #1a1000;
+}
+.status-dot-gold {
+    background: #25d366 !important;
+    box-shadow: 0 0 0 4px rgba(37, 211, 102, 0.2) !important;
+}
 </style>
 
 <section class="welcome-screen" aria-label="Welcome screen dashboard">
@@ -612,7 +879,13 @@ require_once __DIR__ . '/../includes/header.php';
         <h2>Selamat datang, <?= bersihkan($userNama) ?></h2>
         <p>
             Anda masuk sebagai <?= bersihkan($roleLabel) ?>. Fokus hari ini:
-            <?= $sampelAktif ?> sampel aktif, <?= $alertTotal ?> alert aktif,
+            <?php if (isAnalis() && $woCount > 0): ?>
+                <strong style="color:var(--gold);background:rgba(240,192,64,0.14);padding:2px 8px;border-radius:6px;border:1px solid rgba(240,192,64,0.3)"><?= $woCount ?> Work Order aktif ditugaskan kepada Anda</strong> (<?= $woSampelTotal ?> sampel),
+            <?php endif; ?>
+            <?= $sampelAktif ?> sampel aktif di lab, <?= $alertTotal ?> alert aktif,
+            <?php if (isAdmin() && $ssfTotalCount > 0): ?>
+                <strong style="color:var(--gold);background:rgba(240,192,64,0.12);padding:2px 8px;border-radius:6px;border:1px solid rgba(240,192,64,0.3)"><?= $ssfTotalCount ?> permohonan SSF baru</strong>,
+            <?php endif; ?>
             dan target bulan ini sudah <?= $persenTarget ?>%.
         </p>
         <div class="welcome-actions">
@@ -625,18 +898,61 @@ require_once __DIR__ . '/../includes/header.php';
         </div>
     </div>
     <div class="welcome-side">
-        <div class="welcome-status <?= $alertTotal > 0 ? 'needs-attention' : 'stable' ?>">
-            <span class="status-dot" aria-hidden="true"></span>
+        <div class="welcome-status <?= ($alertTotal > 0 || (isAdmin() && $ssfTotalCount > 0) || (isAnalis() && $woCount > 0)) ? 'needs-attention' : 'stable' ?>">
+            <span class="status-dot <?= ((isAnalis() && $woCount > 0) || (isAdmin() && $ssfTotalCount > 0)) ? 'status-dot-gold' : '' ?>" aria-hidden="true"></span>
             <div>
-                <strong><?= $alertTotal > 0 ? $alertTotal . ' alert aktif' : 'Operasional stabil' ?></strong>
+                <strong>
+                    <?php if (isAnalis() && $woCount > 0): ?>
+                        <?= $woCount ?> Work Order Perlu Dikerjakan
+                    <?php elseif (isAdmin() && $ssfTotalCount > 0): ?>
+                        <?= $ssfTotalCount ?> Permintaan SSF Baru
+                    <?php elseif ($alertTotal > 0): ?>
+                        <?= $alertTotal ?> alert aktif
+                    <?php else: ?>
+                        Operasional stabil
+                    <?php endif; ?>
+                </strong>
                 <span>
-                    <?= $alertTotal > 0
-                        ? 'Cek stok bahan, status alat, atau jadwal kalibrasi.'
-                        : 'Tidak ada alert prioritas untuk bahan dan peralatan.' ?>
+                    <?php if (isAnalis() && $woCount > 0): ?>
+                        Ada <?= $woCount ?> tugas aktif yang ditugaskan kepada Anda (<?= $woSampelTotal ?> sampel). Cek persiapan sampel &amp; hasil uji di bawah.
+                    <?php elseif (isAdmin() && $ssfTotalCount > 0): ?>
+                        Status "Diterima" sistem &bull; Konfirmasi via WhatsApp lalu input ke penerimaan.
+                    <?php elseif ($alertTotal > 0): ?>
+                        Cek stok bahan, status alat, atau jadwal kalibrasi.
+                    <?php else: ?>
+                        Tidak ada alert prioritas untuk bahan dan peralatan.
+                    <?php endif; ?>
                 </span>
             </div>
         </div>
         <div class="welcome-metrics">
+            <?php if (isAnalis()): ?>
+            <div class="welcome-metric">
+                <strong style="color:var(--gold)"><?= $woCount ?></strong>
+                <span>Work Order Aktif</span>
+            </div>
+            <div class="welcome-metric">
+                <strong style="color:#2ecc71"><?= $woSampelTotal ?></strong>
+                <span>Sampel Ditugaskan</span>
+            </div>
+            <div class="welcome-metric">
+                <strong><?= $pctLulus ?>%</strong>
+                <span>Tingkat Kelulusan</span>
+            </div>
+            <?php elseif (isAdmin()): ?>
+            <div class="welcome-metric">
+                <strong><?= $sampelAktif ?></strong>
+                <span>Sampel aktif</span>
+            </div>
+            <div class="welcome-metric">
+                <strong style="color:<?= $ssfTotalCount > 0 ? '#2ecc71' : 'var(--gold)' ?>"><?= $ssfTotalCount ?></strong>
+                <span>Permintaan SSF</span>
+            </div>
+            <div class="welcome-metric">
+                <strong><?= $persenTarget ?>%</strong>
+                <span>Target bulan ini</span>
+            </div>
+            <?php else: ?>
             <div class="welcome-metric">
                 <strong><?= $sampelAktif ?></strong>
                 <span>Sampel aktif</span>
@@ -649,9 +965,41 @@ require_once __DIR__ . '/../includes/header.php';
                 <strong><?= $persenTarget ?>%</strong>
                 <span>Target bulan ini</span>
             </div>
+            <?php endif; ?>
         </div>
     </div>
 </section>
+
+<?php if (isAnalis() && $woCount > 0): ?>
+<div class="ssf-alert-banner" style="background: linear-gradient(135deg, rgba(240, 192, 64, 0.16), rgba(30, 132, 73, 0.12)); border-color: rgba(240, 192, 64, 0.4); border-left-color: var(--gold);">
+    <div class="ssf-alert-badge" style="background: var(--gold); color: #1a0f00;">
+        <span>🔔 <?= $woCount ?> Work Order Ditugaskan</span>
+    </div>
+    <div class="ssf-alert-msg">
+        <strong>Tugas Aktif Anda:</strong> Terdapat <?= $woCount ?> Work Order aktif yang ditugaskan kepada Anda (total <?= $woSampelTotal ?> sampel).
+        <?= $woPrepCount > 0 ? "($woPrepCount tugas memerlukan tahapan preparasi sebelum pengujian)." : "(Sampel siap untuk langsung dilakukan pengujian)." ?>
+    </div>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <a href="#notif-wo" class="btn-alert-action">Lihat Daftar Tugas &darr;</a>
+        <a href="<?= BASE_URL ?>/pages/pengujian.php" class="btn-alert-action" style="border-color:var(--green);color:var(--green)">🔬 Form Pengujian &rarr;</a>
+    </div>
+</div>
+<?php endif; ?>
+
+<?php if (isAdmin() && $ssfTotalCount > 0): ?>
+<div class="ssf-alert-banner">
+    <div class="ssf-alert-badge">
+        <span>🔔 <?= $ssfTotalCount ?> Permintaan SSF Baru</span>
+    </div>
+    <div class="ssf-alert-msg">
+        <strong>Status "Diterima" Sistem:</strong> Ada <?= $ssfTotalCount ?> permohonan pengujian via SSF yang baru masuk. Silakan konfirmasi ke klien via WhatsApp. Setelah konfirmasi OK, lanjutkan dengan input manual ke Penerimaan Sampel Baru.
+    </div>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <a href="#notif-ssf" class="btn-alert-action">Lihat Daftar &darr;</a>
+        <a href="<?= BASE_URL ?>/pages/submission.php?tab=diterima" class="btn-alert-action" style="border-color:var(--green);color:var(--green)">Kelola Semua SSF &rarr;</a>
+    </div>
+</div>
+<?php endif; ?>
 
 <div class="sec-title">Ringkasan Hari Ini &mdash; <?= fmtTglPanjang(date('Y-m-d')) ?></div>
 
@@ -731,7 +1079,7 @@ require_once __DIR__ . '/../includes/header.php';
 
     <!-- NOTIFIKASI WORK ORDER (untuk analis) -->
     <?php if (isAnalis()): ?>
-    <div class="wo-notification-card">
+    <div class="wo-notification-card" id="notif-wo">
         <div class="wo-notification-header">
             <h4>
                 <span>🔔</span> NOTIFIKASI WORK ORDER
@@ -748,10 +1096,16 @@ require_once __DIR__ . '/../includes/header.php';
                 $priorityClass = 'priority-' . $wo['prioritas'];
                 $isUrgent = $wo['prioritas'] === 'urgent';
                 $isTinggi = $wo['prioritas'] === 'tinggi';
+                $isButuhPrep = !empty($wo['butuh_preparasi']);
             ?>
             <div class="wo-item <?= $isUrgent ? 'urgent' : ($isTinggi ? 'tinggi' : '') ?>">
                 <div class="wo-item-header">
                     <span class="wo-no">📋 <?= bersihkan($wo['nomor_wo']) ?></span>
+                    <?php if ($isButuhPrep): ?>
+                        <span style="font-size:0.58rem;padding:2px 7px;border-radius:10px;background:rgba(230,126,34,0.18);color:#f39c12;border:1px solid rgba(230,126,34,0.35);font-weight:700">⚗️ Wajib Preparasi</span>
+                    <?php else: ?>
+                        <span style="font-size:0.58rem;padding:2px 7px;border-radius:10px;background:rgba(46,204,113,0.18);color:#2ecc71;border:1px solid rgba(46,204,113,0.35);font-weight:700">⚡ Langsung Uji</span>
+                    <?php endif; ?>
                     <span class="wo-priority <?= $priorityClass ?>"><?= strtoupper($wo['prioritas']) ?></span>
                 </div>
                 <div class="wo-detail">
@@ -762,8 +1116,12 @@ require_once __DIR__ . '/../includes/header.php';
                     <?php endif; ?>
                 </div>
                 <div class="wo-action">
-                    <a href="<?= BASE_URL ?>/pages/preparasi.php?wo_id=<?= $wo['id'] ?>" class="btn-notif btn-notif-primary">⚗️ Preparasi</a>
-                    <a href="<?= BASE_URL ?>/pages/pengujian.php?wo_id=<?= $wo['id'] ?>&tab=batch" class="btn-notif btn-notif-primary">🔬 Hasil Uji</a>
+                    <?php if ($isButuhPrep): ?>
+                        <a href="<?= BASE_URL ?>/pages/preparasi.php?wo_id=<?= $wo['id'] ?>" class="btn-notif btn-notif-primary">⚗️ Preparasi</a>
+                        <a href="<?= BASE_URL ?>/pages/pengujian.php?wo_id=<?= $wo['id'] ?>&tab=batch" class="btn-notif btn-notif-secondary">🔬 Hasil Uji</a>
+                    <?php else: ?>
+                        <a href="<?= BASE_URL ?>/pages/pengujian.php?wo_id=<?= $wo['id'] ?>&tab=batch" class="btn-notif btn-notif-primary" style="background:var(--gold);color:#1a0f00;font-weight:700">🔬 Input Hasil Uji</a>
+                    <?php endif; ?>
                     <a href="<?= BASE_URL ?>/pages/work_order.php?tab=daftar" class="btn-notif btn-notif-secondary">📋 Detail</a>
                 </div>
             </div>
@@ -778,6 +1136,100 @@ require_once __DIR__ . '/../includes/header.php';
         <div class="empty-notif">
             <span>✅</span>
             <p style="margin-top:8px">Belum ada Work Order yang ditugaskan.</p>
+        </div>
+        <?php endif; ?>
+    </div>
+    <?php elseif (isAdmin()): ?>
+    <!-- ── NOTIFIKASI PERMINTAAN SSF (ADMIN) ────────────────────── -->
+    <div class="ssf-notification-card" id="notif-ssf">
+        <div class="ssf-notification-header">
+            <h4>
+                <span>🔔</span> NOTIFIKASI PERMINTAAN SSF
+                <?php if ($ssfTotalCount > 0): ?>
+                <span class="badge-count-ssf"><?= $ssfTotalCount ?> Diterima</span>
+                <?php endif; ?>
+            </h4>
+            <span class="ssf-sub-label">Diterima Sistem &bull; Konfirmasi via WA</span>
+        </div>
+        
+        <?php if ($ssfTotalCount > 0): ?>
+        <div class="ssf-list">
+            <?php foreach ($ssfNotifications as $sub): 
+                $waPhone = preg_replace('/[^0-9]/', '', (string)($sub['telepon'] ?? ''));
+                if (str_starts_with($waPhone, '0')) {
+                    $waPhone = '62' . substr($waPhone, 1);
+                } elseif (str_starts_with($waPhone, '8')) {
+                    $waPhone = '62' . $waPhone;
+                }
+                
+                $contactName = !empty($sub['kontak_person']) ? $sub['kontak_person'] : $sub['klien'];
+                $matSummary = !empty($sub['material_list']) ? $sub['material_list'] : 'Sampel mineral';
+                if (!empty($sub['metode_list'])) {
+                    $matSummary .= ' (Metode: ' . $sub['metode_list'] . ')';
+                }
+                
+                $waText = "Halo {$contactName},\n\nKami dari Tim Laboratorium AISPEKTRA mengonfirmasi permohonan pengujian sampel via SSF:\n📋 No: {$sub['nomor_submission']}\n🏢 Klien: {$sub['klien']}\n📦 Jumlah: {$sub['jumlah_sampel']} sampel ({$matSummary})\n\nStatus permohonan Anda telah DITERIMA SISTEM kami. Mohon konfirmasi kesiapan pengiriman sampel fisik ke laboratorium kami.\n\nTerima kasih.\n— AISPEKTRA Laboratory";
+                $waLink = $waPhone ? ('https://wa.me/' . $waPhone . '?text=' . rawurlencode($waText)) : '';
+            ?>
+            <div class="ssf-item">
+                <div class="ssf-item-header">
+                    <span class="ssf-no">📋 <?= bersihkan($sub['nomor_submission']) ?></span>
+                    <span class="badge-status-sistem">Diterima Sistem</span>
+                    <span class="ssf-date"><?= fmtTgl($sub['tanggal_submit'] ?? $sub['created_at'], 'd/m H:i') ?></span>
+                </div>
+                <div class="ssf-client-info">
+                    <strong><?= bersihkan($sub['klien']) ?></strong>
+                    <?php if (!empty($sub['kontak_person'])): ?>
+                        <span class="ssf-contact">&bull; PIC: <?= bersihkan($sub['kontak_person']) ?></span>
+                    <?php endif; ?>
+                </div>
+                <div class="ssf-detail">
+                    <span>📦 <?= (int)$sub['jumlah_sampel'] ?> sampel</span>
+                    <?php if (!empty($sub['material_list'])): ?>
+                    <span>🧪 <?= bersihkan($sub['material_list']) ?></span>
+                    <?php endif; ?>
+                    <?php if (!empty($sub['metode_list'])): ?>
+                    <span>🔬 <?= bersihkan($sub['metode_list']) ?></span>
+                    <?php endif; ?>
+                    <?php if (!empty($sub['parameter_list'])): ?>
+                    <span>📊 <?= bersihkan(mb_strimwidth($sub['parameter_list'], 0, 45, '...')) ?></span>
+                    <?php endif; ?>
+                </div>
+                <?php if (!empty($sub['instruksi_khusus'])): ?>
+                <div class="ssf-notes">
+                    <em>Instruksi:</em> <?= bersihkan(mb_strimwidth($sub['instruksi_khusus'], 0, 80, '...')) ?>
+                </div>
+                <?php endif; ?>
+                <div class="ssf-actions">
+                    <?php if ($waLink): ?>
+                    <a href="<?= $waLink ?>" target="_blank" class="btn-ssf btn-ssf-wa" title="Konfirmasi ke Klien via WhatsApp">
+                        💬 Konfirmasi WA
+                    </a>
+                    <?php else: ?>
+                    <span class="btn-ssf btn-ssf-disabled" title="Nomor telepon tidak valid">⚠️ No WA Kosong</span>
+                    <?php endif; ?>
+                    
+                    <a href="<?= BASE_URL ?>/pages/penerimaan.php?from_submission=<?= $sub['id'] ?>" class="btn-ssf btn-ssf-input" title="Input manual data ke Penerimaan Sampel Baru setelah konfirmasi">
+                        📥 Input Penerimaan
+                    </a>
+                    
+                    <a href="<?= BASE_URL ?>/pages/submission.php?tab=<?= $sub['status'] ?>" class="btn-ssf btn-ssf-detail" title="Lihat detail lengkap submission">
+                        🔍 Detail
+                    </a>
+                </div>
+            </div>
+            <?php endforeach; ?>
+        </div>
+        <?php if ($ssfTotalCount > count($ssfNotifications)): ?>
+        <div class="view-all-link">
+            <a href="<?= BASE_URL ?>/pages/submission.php?tab=diterima">Lihat semua (<?= $ssfTotalCount ?>) permohonan SSF &rarr;</a>
+        </div>
+        <?php endif; ?>
+        <?php else: ?>
+        <div class="empty-notif">
+            <span>✅</span>
+            <p style="margin-top:8px">Tidak ada permintaan SSF baru yang menunggu konfirmasi.</p>
+            <p style="font-size:0.68rem;color:var(--text3);margin-top:2px">Semua permohonan SSF berstatus diproses / selesai.</p>
         </div>
         <?php endif; ?>
     </div>

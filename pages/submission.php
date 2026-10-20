@@ -32,24 +32,32 @@ if ($fStatus) {
 $submissions = $stmt->fetchAll();
 
 // Statistik
-$pending = $pdo->query("SELECT COUNT(*) FROM submission_sampel WHERE status='pending'")->fetchColumn();
-$diterima = $pdo->query("SELECT COUNT(*) FROM submission_sampel WHERE status='diterima'")->fetchColumn();
-$ditolak = $pdo->query("SELECT COUNT(*) FROM submission_sampel WHERE status='ditolak'")->fetchColumn();
+$pending  = (int)$pdo->query("SELECT COUNT(*) FROM submission_sampel WHERE status='pending'")->fetchColumn();
+$diterima = (int)$pdo->query("SELECT COUNT(*) FROM submission_sampel WHERE status='diterima'")->fetchColumn();
+$diproses = (int)$pdo->query("SELECT COUNT(*) FROM submission_sampel WHERE status='diproses'")->fetchColumn();
+$ditolak  = (int)$pdo->query("SELECT COUNT(*) FROM submission_sampel WHERE status='ditolak'")->fetchColumn();
+
+// Default tab: jika ada yang diterima sistem, buka tab diterima
+if (!isset($_GET['tab'])) {
+    $tab = $diterima > 0 ? 'diterima' : ($pending > 0 ? 'pending' : 'semua');
+}
 
 require_once __DIR__ . '/../includes/header.php';
 ?>
 
 <style>
-.tabs{display:flex;gap:4px;margin-bottom:16px;border-bottom:1px solid var(--border);}
+.tabs{display:flex;gap:4px;margin-bottom:16px;border-bottom:1px solid var(--border);flex-wrap:wrap;}
 .tab-btn{padding:8px 18px;background:none;border:none;border-bottom:3px solid transparent;color:var(--text3);font-size:.82rem;cursor:pointer;font-weight:600;transition:.2s;margin-bottom:-1px;}
 .tab-btn:hover{color:var(--text2);}
 .tab-btn.active{color:var(--gold);border-bottom-color:var(--gold);}
 .tab-pane{display:none;}.tab-pane.active{display:block;}
-.stat-mini{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px;}
+.stat-mini{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px;}
+@media (max-width: 800px) { .stat-mini { grid-template-columns:repeat(2,1fr); } }
 .smc{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:12px 14px;}
 .smc .v{font-size:1.5rem;font-weight:700;}
 .smc .v.pending{color:var(--yellow);}
-.smc .v.diterima{color:var(--green);}
+.smc .v.diterima{color:#2ecc71;}
+.smc .v.diproses{color:#3498db;}
 .smc .v.ditolak{color:var(--red);}
 .smc .l{font-size:.7rem;color:var(--text3);margin-top:2px;}
 .submission-card{background:var(--card);border:1px solid var(--border);border-radius:10px;margin-bottom:12px;overflow:hidden;}
@@ -63,7 +71,7 @@ require_once __DIR__ . '/../includes/header.php';
 .sample-list th,.sample-list td{padding:6px 8px;border-bottom:1px solid var(--border);text-align:left;}
 </style>
 
-<div class="sec-title">📋 Manajemen Submission Sampel</div>
+<div class="sec-title">📋 Manajemen Permintaan SSF (Single Submission Form)</div>
 
 <?php if ($msg): ?>
     <div class="alert-box <?= str_starts_with($msg,'ERROR')?'alert-red':'alert-green' ?>">
@@ -72,23 +80,28 @@ require_once __DIR__ . '/../includes/header.php';
 <?php endif; ?>
 
 <div class="stat-mini">
-    <div class="smc"><div class="v pending"><?= $pending ?></div><div class="l">Menunggu Proses</div></div>
-    <div class="smc"><div class="v diterima"><?= $diterima ?></div><div class="l">Diterima / Diproses</div></div>
+    <div class="smc"><div class="v diterima"><?= $diterima ?></div><div class="l">Diterima Sistem (Menunggu WA &amp; Input)</div></div>
+    <div class="smc"><div class="v diproses"><?= $diproses ?></div><div class="l">Sudah Diinput ke Penerimaan</div></div>
+    <div class="smc"><div class="v pending"><?= $pending ?></div><div class="l">Pending</div></div>
     <div class="smc"><div class="v ditolak"><?= $ditolak ?></div><div class="l">Ditolak</div></div>
 </div>
 
 <div class="tabs">
-    <button class="tab-btn <?= $tab==='pending'?'active':'' ?>" onclick="switchTab('pending',this)">⏳ Menunggu (<?= $pending ?>)</button>
-    <button class="tab-btn <?= $tab==='diterima'?'active':'' ?>" onclick="switchTab('diterima',this)">✅ Diterima (<?= $diterima ?>)</button>
+    <button class="tab-btn <?= $tab==='diterima'?'active':'' ?>" onclick="switchTab('diterima',this)">🟢 Diterima Sistem (<?= $diterima ?>)</button>
+    <button class="tab-btn <?= $tab==='diproses'?'active':'' ?>" onclick="switchTab('diproses',this)">📦 Masuk Penerimaan (<?= $diproses ?>)</button>
+    <button class="tab-btn <?= $tab==='pending'?'active':'' ?>" onclick="switchTab('pending',this)">⏳ Pending (<?= $pending ?>)</button>
     <button class="tab-btn <?= $tab==='ditolak'?'active':'' ?>" onclick="switchTab('ditolak',this)">❌ Ditolak (<?= $ditolak ?>)</button>
     <button class="tab-btn <?= $tab==='semua'?'active':'' ?>" onclick="switchTab('semua',this)">📋 Semua</button>
 </div>
 
-<div id="tab-pending" class="tab-pane <?= $tab==='pending'?'active':'' ?>">
-    <?php renderSubmissionList(array_filter($submissions, fn($s) => $s['status'] === 'pending')); ?>
-</div>
 <div id="tab-diterima" class="tab-pane <?= $tab==='diterima'?'active':'' ?>">
     <?php renderSubmissionList(array_filter($submissions, fn($s) => $s['status'] === 'diterima')); ?>
+</div>
+<div id="tab-diproses" class="tab-pane <?= $tab==='diproses'?'active':'' ?>">
+    <?php renderSubmissionList(array_filter($submissions, fn($s) => $s['status'] === 'diproses')); ?>
+</div>
+<div id="tab-pending" class="tab-pane <?= $tab==='pending'?'active':'' ?>">
+    <?php renderSubmissionList(array_filter($submissions, fn($s) => $s['status'] === 'pending')); ?>
 </div>
 <div id="tab-ditolak" class="tab-pane <?= $tab==='ditolak'?'active':'' ?>">
     <?php renderSubmissionList(array_filter($submissions, fn($s) => $s['status'] === 'ditolak')); ?>
@@ -112,34 +125,22 @@ function toggleSubmission(id) {
 }
 
 function updateStatus(submissionId, status) {
-    if (status === 'diterima') {
-        if (confirm('Terima submission ini? Akun client akan disiapkan lalu bisa dikirim via WhatsApp.')) {
-            fetch('<?= BASE_URL ?>/actions/update_submission_status.php', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-                body: 'id=' + submissionId + '&status=' + status
-            }).then(response => response.json()).then(data => {
-                if (data.success) {
-                    location.reload();
-                } else {
-                    alert('Gagal mengubah status: ' + data.message);
-                }
-            });
-        }
-    } else if (status === 'ditolak') {
-        if (confirm('Tolak submission ini?')) {
-            fetch('<?= BASE_URL ?>/actions/update_submission_status.php', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-                body: 'id=' + submissionId + '&status=' + status
-            }).then(response => response.json()).then(data => {
-                if (data.success) {
-                    location.reload();
-                } else {
-                    alert('Gagal mengubah status: ' + data.message);
-                }
-            });
-        }
+    let msgConfirm = 'Ubah status permohonan submission ini?';
+    if (status === 'diterima') msgConfirm = 'Set status menjadi Diterima Sistem?';
+    if (status === 'ditolak') msgConfirm = 'Tolak permohonan submission ini?';
+    
+    if (confirm(msgConfirm)) {
+        fetch('<?= BASE_URL ?>/actions/update_submission_status.php', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+            body: 'id=' + submissionId + '&status=' + status
+        }).then(response => response.json()).then(data => {
+            if (data.success) {
+                location.reload();
+            } else {
+                alert('Gagal mengubah status: ' + data.message);
+            }
+        });
     }
 }
 </script>
@@ -247,12 +248,36 @@ function renderSubmissionList($submissions) {
                 </div>
                 <?php endif; ?>
 
-                <div style="margin-top:16px;display:flex;gap:10px;justify-content:flex-end">
+                <?php
+                $waPhoneConfirm = preg_replace('/[^0-9]/', '', (string)($sub['telepon'] ?? ''));
+                if (str_starts_with($waPhoneConfirm, '0')) {
+                    $waPhoneConfirm = '62' . substr($waPhoneConfirm, 1);
+                } elseif (str_starts_with($waPhoneConfirm, '8')) {
+                    $waPhoneConfirm = '62' . $waPhoneConfirm;
+                }
+                $picName = !empty($sub['kontak_person']) ? $sub['kontak_person'] : $sub['klien'];
+                $waConfirmMsg = "Halo {$picName},\n\nKami dari Tim Laboratorium AISPEKTRA mengonfirmasi permohonan pengujian sampel via SSF No: {$sub['nomor_submission']}.\nStatus permohonan Anda: DITERIMA SISTEM.\n\nMohon konfirmasi kesiapan pengiriman sampel fisik ke laboratorium kami.\nTerima kasih.\n— AISPEKTRA Laboratory";
+                $waConfirmUrl = $waPhoneConfirm ? ('https://wa.me/' . $waPhoneConfirm . '?text=' . rawurlencode($waConfirmMsg)) : '';
+                ?>
+                <div style="margin-top:16px;display:flex;gap:10px;justify-content:flex-end;align-items:center;flex-wrap:wrap">
+                    <?php if ($waConfirmUrl): ?>
+                        <a href="<?= $waConfirmUrl ?>" target="_blank" class="btn btn-sm" style="background:#25d366;color:#04240d;font-weight:700">
+                            💬 Konfirmasi via WA
+                        </a>
+                    <?php endif; ?>
+
                     <?php if ($sub['status'] === 'pending'): ?>
-                        <button onclick="updateStatus(<?= $sub['id'] ?>, 'diterima')" class="btn btn-green btn-sm">Terima</button>
+                        <button onclick="updateStatus(<?= $sub['id'] ?>, 'diterima')" class="btn btn-green btn-sm">Set Diterima Sistem</button>
                         <button onclick="updateStatus(<?= $sub['id'] ?>, 'ditolak')" class="btn btn-red btn-sm">Tolak</button>
                     <?php elseif ($sub['status'] === 'diterima'): ?>
-                        <button onclick="location.href='<?= BASE_URL ?>/pages/penerimaan.php?process_submission=<?= $sub['id'] ?>'" class="btn btn-gold btn-sm">Proses ke Penerimaan</button>
+                        <a href="<?= BASE_URL ?>/pages/penerimaan.php?from_submission=<?= $sub['id'] ?>" class="btn btn-gold btn-sm">
+                            📥 Input ke Penerimaan Sampel (Manual)
+                        </a>
+                        <button onclick="updateStatus(<?= $sub['id'] ?>, 'ditolak')" class="btn btn-red btn-sm">Tolak</button>
+                    <?php elseif ($sub['status'] === 'diproses'): ?>
+                        <span style="font-size:0.75rem;color:var(--green);font-weight:600;display:inline-flex;align-items:center;gap:4px">
+                            ✅ Sudah Diinput ke Penerimaan Sampel
+                        </span>
                     <?php endif; ?>
                 </div>
             </div>

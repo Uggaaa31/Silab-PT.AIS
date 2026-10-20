@@ -628,10 +628,10 @@ require_once __DIR__ . '/../includes/header.php';
                 </div>
                 <div class="form-group" style="margin-bottom:14px">
                     <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
-                        <input type="checkbox" name="butuh_preparasi" value="1" checked
+                        <input type="checkbox" name="butuh_preparasi" value="1"
                                style="width:16px;height:16px;accent-color:var(--gold)"/>
                         <span style="font-weight:600;color:var(--text)">Wajib Preparasi Sampel</span>
-                        <small style="color:var(--text3)">(Uncheck jika sampel siap uji tanpa preparasi)</small>
+                        <small style="color:var(--text3)">(Centang jika sampel memerlukan tahapan preparasi terlebih dahulu)</small>
                     </label>
                 </div>
                 <div class="form-group" style="margin-bottom:14px">

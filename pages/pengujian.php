@@ -423,6 +423,62 @@ require_once __DIR__ . '/../includes/header.php';
     border-color: var(--gold);
     color: #fff;
 }
+
+/* Styling Tabel Uji Horizontal ala Report of Analysis */
+.table-horizontal-uji {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: .78rem;
+}
+.table-horizontal-uji th, .table-horizontal-uji td {
+    border: 1px solid var(--border);
+}
+.table-horizontal-uji th {
+    background: var(--bg2);
+}
+.input-nilai-param {
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 5px 8px;
+    border-radius: 4px;
+    font-size: .78rem;
+    width: 82px;
+    text-align: right;
+    transition: all .2s ease;
+}
+.input-nilai-param:focus {
+    border-color: var(--gold);
+    outline: none;
+    box-shadow: 0 0 0 2px rgba(232, 180, 0, 0.2);
+}
+.input-nilai-param.highlight-updated {
+    border-color: #10b981 !important;
+    background: rgba(16, 185, 129, 0.2) !important;
+    color: #6ee7b7 !important;
+}
+.param-col-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: rgba(232, 180, 0, 0.12);
+    color: var(--gold);
+    border: 1px solid rgba(232, 180, 0, 0.3);
+    border-radius: 4px;
+    padding: 2px 7px;
+    font-size: .72rem;
+    font-weight: 700;
+}
+.param-col-remove {
+    cursor: pointer;
+    color: var(--text3);
+    font-size: .78rem;
+    line-height: 1;
+    margin-left: 2px;
+}
+.param-col-remove:hover {
+    color: #ef4444;
+}
 </style>
 
 <div class="sec-title">Pengujian Sampel</div>
@@ -618,37 +674,53 @@ require_once __DIR__ . '/../includes/header.php';
         <div id="woBatchParamInfo" style="display:none;margin-bottom:14px;padding:10px 14px;background:#0d2318;border:1px solid var(--green3);border-radius:8px;font-size:.78rem">
             <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
                 <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
-                    <span style="color:var(--gold);font-weight:700">📊 Parameter Uji Terpisah:</span> 
+                    <span style="color:var(--gold);font-weight:700">📊 Kolom Parameter Work Order:</span> 
                     <span id="woBatchParamText"></span>
                 </div>
                 <span id="woBatchSummaryText" style="font-size:.7rem;color:var(--text3);background:var(--bg3);padding:3px 8px;border-radius:4px;border:1px solid var(--border)"></span>
             </div>
         </div>
 
-        <form method="POST" action="<?= BASE_URL ?>/actions/simpan_hasil_uji_batch.php">
+        <form method="POST" action="<?= BASE_URL ?>/actions/simpan_hasil_uji_batch.php" id="formBatchUji">
             <div style="border:1px solid var(--border);border-radius:8px;padding:14px;margin-bottom:14px">
-                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
-                    <span style="font-size:.8rem;font-weight:600;color:var(--gold)">&#128300; Baris Hasil Uji</span>
-                    <button type="button" class="btn btn-green btn-sm" onclick="tambahBarisUji()">&#10133; Tambah Baris</button>
+                <!-- Toolbar Atas Tabel Uji Horizontal -->
+                <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:12px;padding-bottom:10px;border-bottom:1px solid var(--border)">
+                    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+                        <span style="font-size:.82rem;font-weight:700;color:var(--gold)">&#128300; Tabel Hasil Uji (Layout Horizontal ala Sertifikat)</span>
+                        <div id="paramTagsWrapper" style="display:inline-flex;align-items:center;gap:4px;flex-wrap:wrap"></div>
+                    </div>
+                    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+                        <!-- Unit Selector -->
+                        <div style="display:inline-flex;align-items:center;gap:4px;font-size:.72rem;color:var(--text3)">
+                            <span>Satuan:</span>
+                            <select id="globalSatuanSel" onchange="changeGlobalSatuan(this.value)" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:3px 6px;border-radius:4px;font-size:.72rem">
+                                <?php foreach ($satuanOpts as $sat): ?>
+                                    <option value="<?= $sat ?>" <?= $sat === '%' ? 'selected' : '' ?>><?= $sat ?></option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+
+                        <button type="button" class="btn btn-green btn-sm" onclick="tambahBarisSampel()">&#10133; Tambah Sampel</button>
+                    </div>
                 </div>
+
                 <div style="overflow-x:auto">
-                <table style="width:100%;border-collapse:collapse;font-size:.78rem" id="batchUjiTable">
+                <table class="table-horizontal-uji" id="batchUjiTable">
                     <thead>
-                        <tr>
-                            <th style="padding:6px;text-align:left;color:var(--text3);font-size:.72rem;border-bottom:1px solid var(--border)">Sampel</th>
-                            <th style="padding:6px;text-align:left;color:var(--text3);font-size:.72rem;border-bottom:1px solid var(--border);color:#60a5fa">Data XRF</th>
-                            <th style="padding:6px;text-align:left;color:var(--text3);font-size:.72rem;border-bottom:1px solid var(--border)">Parameter</th>
-                            <th style="padding:6px;text-align:left;color:var(--text3);font-size:.72rem;border-bottom:1px solid var(--border)">Nilai</th>
-                            <th style="padding:6px;text-align:left;color:var(--text3);font-size:.72rem;border-bottom:1px solid var(--border)">Satuan</th>
-                            <th style="padding:6px;text-align:left;color:var(--text3);font-size:.72rem;border-bottom:1px solid var(--border)">Metode</th>
-                            <th style="padding:6px;text-align:left;color:var(--text3);font-size:.72rem;border-bottom:1px solid var(--border)">Kesimpulan</th>
-                            <th style="padding:6px;border-bottom:1px solid var(--border);width:36px"></th>
+                        <tr id="batchHeaderRow1">
+                            <!-- Di-render oleh JavaScript renderTableHeaders() -->
+                        </tr>
+                        <tr id="batchHeaderRow2">
+                            <!-- Di-render oleh JavaScript renderTableHeaders() -->
                         </tr>
                     </thead>
                     <tbody id="batchUjiRows"></tbody>
                 </table>
                 </div>
-                <div style="font-size:.72rem;color:var(--text3);margin-top:6px">Total: <strong id="totalUjiBatch" style="color:var(--gold)">0</strong> baris</div>
+                <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;font-size:.72rem;color:var(--text3);margin-top:8px">
+                    <div>Total: <strong id="totalSampelBatch" style="color:var(--gold)">0</strong> sampel (<strong id="totalUjiBatch" style="color:var(--gold)">0</strong> hasil parameter)</div>
+                    <div>💡 <em>Kolom parameter yang tidak diuji pada suatu sampel cukup dibiarkan kosong (—), hanya kolom yang terisi nilai yang akan disimpan ke database.</em></div>
+                </div>
             </div>
 
             <div class="form-row">
@@ -962,11 +1034,10 @@ function openXrfPickerModal(rowIndex) {
     currentTargetRowIndex = rowIndex;
     selectedXrfIds.clear();
     
-    // Get row sample info and specific parameter for this row
+    // Get row sample info and parameters
     const row = document.getElementById(`ubr${rowIndex}`);
     let targetLabel = `Baris #${rowIndex}`;
     currentTargetSampleName = '';
-    let rowParam = '';
 
     if (row) {
         const selectSampel = row.querySelector(`select[name="rows[${rowIndex}][sampel_id]"]`) || row.querySelector(`input[name="rows[${rowIndex}][sampel_id]"]`);
@@ -983,15 +1054,11 @@ function openXrfPickerModal(rowIndex) {
                 currentTargetSampleName = fullText.split(' ')[0].trim();
             }
         }
-        const pInput = row.querySelector(`input[name="rows[${rowIndex}][parameter]"]`);
-        if (pInput && pInput.value.trim()) {
-            rowParam = pInput.value.trim();
-            targetLabel += ` · Parameter: ${rowParam}`;
-        }
     }
 
-    if (rowParam) {
-        activeWoTargetParams = [rowParam];
+    activeWoTargetParams = (activeTableParams && activeTableParams.length > 0) ? [...activeTableParams] : ['Au', 'Ag'];
+    if (activeWoTargetParams.length > 0) {
+        targetLabel += ` · Kolom: ${activeWoTargetParams.join(', ')}`;
     }
 
     document.getElementById('xrfActiveTargetRow').textContent = `🎯 Mengisi untuk: ${targetLabel}`;
@@ -1097,21 +1164,23 @@ function fetchXrfModalData() {
                 const hasElements = item.elements && item.elements.length > 0;
                 
                 if (hasElements) {
-                    let targetParamName = (activeWoTargetParams && activeWoTargetParams.length > 0) ? activeWoTargetParams[0] : '';
-                    let targetMatch = targetParamName ? findMatchingXrfElement(item.elements, targetParamName) : null;
-                    
-                    if (targetParamName) {
-                        if (targetMatch) {
-                            const val = parseFloat(targetMatch.concentration) || 0;
-                            elementBadges += `<span class="xrf-element-target">🎯 <strong>${escapeHtml(targetMatch.element_name)}</strong>: ${val.toFixed(3)}${targetMatch.unit || '%'}</span>`;
-                        } else {
-                            elementBadges += `<span class="xrf-element-target none">🎯 ${escapeHtml(targetParamName)}: 0.000%</span>`;
-                        }
-                    }
+                    let targetParams = (activeWoTargetParams && activeWoTargetParams.length > 0) ? activeWoTargetParams : [];
+                    let matchedElements = [];
 
-                    // Show up to 3 dominant other elements
-                    const otherElements = item.elements.filter(el => !targetMatch || el !== targetMatch);
-                    const topOthers = otherElements.slice(0, targetParamName ? 3 : 4);
+                    targetParams.forEach(tp => {
+                        const m = findMatchingXrfElement(item.elements, tp);
+                        if (m) {
+                            matchedElements.push(m);
+                            const val = parseFloat(m.concentration) || 0;
+                            elementBadges += `<span class="xrf-element-target">🎯 <strong>${escapeHtml(m.element_name)}</strong>: ${val.toFixed(3)}${m.unit || '%'}</span>`;
+                        } else {
+                            elementBadges += `<span class="xrf-element-target none">🎯 ${escapeHtml(tp)}: 0.000%</span>`;
+                        }
+                    });
+
+                    // Tampilkan sisa unsur lainnya (maks 3 unsur dominan)
+                    const otherElements = item.elements.filter(el => !matchedElements.includes(el));
+                    const topOthers = otherElements.slice(0, 3);
                     
                     topOthers.forEach(el => {
                         const val = parseFloat(el.concentration) || 0;
@@ -1254,16 +1323,26 @@ function calculateAveragesFromSelected() {
     const averagedElements = [];
     const scanCount = selectedScans.length;
     for (const [key, data] of Object.entries(elementMap)) {
-        const sum = data.values.reduce((acc, v) => acc + v, 0);
-        const avg = sum / scanCount;
-        const avgFormatted = parseFloat(avg.toFixed(4));
-        
+        // Hanya hitung scan yang unsurnya terdeteksi / bernilai > 0 (scan bernilai 0 tidak diikutkan ke pembagi)
+        const positiveValues = data.values.filter(v => v > 0);
+        let avgFormatted = 0;
+        let validCount = 0;
+
+        if (positiveValues.length > 0) {
+            const sum = positiveValues.reduce((acc, v) => acc + v, 0);
+            const avg = sum / positiveValues.length;
+            avgFormatted = parseFloat(avg.toFixed(4));
+            validCount = positiveValues.length;
+        }
+
         averagedElements.push({
             element_name: data.originalName,
             concentration: avgFormatted,
             unit: data.unit,
             values: data.values,
-            scans_count: scanCount
+            positive_values: positiveValues,
+            scans_count: validCount, // hanya scan yang bernilai > 0
+            total_selected_scans: scanCount
         });
     }
 
@@ -1317,51 +1396,59 @@ function updateXrfAverageDrawer() {
         </span>
     `).join('');
 
-    // Render Live Average Mini-Pills (Compact Minimalist)
+    // Render Live Average Mini-Pills
     const pillsContainer = document.getElementById('xrfAveragePills');
-    const targetParamName = (activeWoTargetParams && activeWoTargetParams.length > 0) ? activeWoTargetParams[0] : '';
+    const targetParams = (activeWoTargetParams && activeWoTargetParams.length > 0) ? activeWoTargetParams : [];
 
-    if (targetParamName) {
-        // HANYA tampilkan rata-rata parameter target (misal: Au)
-        const targetMatch = findMatchingXrfElement(calc.elements, targetParamName);
-        if (targetMatch) {
-            const valList = (targetMatch.values || []).map(v => v.toFixed(3)).join(' + ');
-            const formula = targetMatch.scans_count > 1 ? `(${valList}) / ${targetMatch.scans_count}` : `${valList}`;
-            pillsContainer.innerHTML = `
-                <span class="xrf-avg-mini-pill target-matched" style="font-size:.74rem;padding:3px 8px" title="Perhitungan: ${formula} = ${targetMatch.concentration} ${targetMatch.unit}">
-                    <strong style="color:#fde047">🎯 Rata-rata ${escapeHtml(targetMatch.element_name)}:</strong>
-                    <span style="font-weight:700;margin-left:4px;color:#fff">${targetMatch.concentration}</span>
-                    <span style="font-size:.65rem;color:var(--text3);margin-left:2px">${targetMatch.unit}</span>
-                    <span style="font-size:.65rem;opacity:.75;margin-left:6px;border-left:1px solid rgba(255,255,255,0.2);padding-left:6px">Rumus: ${formula}</span>
-                </span>
-            `;
-        } else {
-            pillsContainer.innerHTML = `
-                <span class="xrf-avg-mini-pill" style="font-size:.74rem;padding:3px 8px;color:var(--text3)">
-                    <strong>🎯 ${escapeHtml(targetParamName)}:</strong> 0.000 (tidak terdeteksi)
-                </span>
-            `;
-        }
+    if (targetParams.length > 0) {
+        let pillsHtml = '';
+        targetParams.forEach(tp => {
+            const targetMatch = findMatchingXrfElement(calc.elements, tp);
+            if (targetMatch && targetMatch.concentration > 0) {
+                const vals = (targetMatch.positive_values && targetMatch.positive_values.length > 0)
+                    ? targetMatch.positive_values
+                    : targetMatch.values;
+                const valList = vals.map(v => v.toFixed(3)).join(' + ');
+                const formula = targetMatch.scans_count > 1 ? `(${valList}) / ${targetMatch.scans_count}` : `${valList}`;
+                const detInfo = targetMatch.scans_count < calc.scanCount ? ` (${targetMatch.scans_count} dari ${calc.scanCount} scan terdeteksi)` : '';
+                pillsHtml += `
+                    <span class="xrf-avg-mini-pill target-matched" style="font-size:.74rem;padding:3px 8px" title="Perhitungan: ${formula} = ${targetMatch.concentration} ${targetMatch.unit}${detInfo}">
+                        <strong style="color:#fde047">🎯 ${escapeHtml(targetMatch.element_name)}:</strong>
+                        <span style="font-weight:700;margin-left:4px;color:#fff">${targetMatch.concentration}</span>
+                        <span style="font-size:.65rem;color:var(--text3);margin-left:2px">${targetMatch.unit}</span>
+                    </span>
+                `;
+            } else {
+                pillsHtml += `
+                    <span class="xrf-avg-mini-pill" style="font-size:.74rem;padding:3px 8px;color:var(--text3)">
+                        <strong>🎯 ${escapeHtml(tp)}:</strong> 0.000
+                    </span>
+                `;
+            }
+        });
+        pillsContainer.innerHTML = pillsHtml;
     } else {
-        // Jika tanpa target spesifik, tampilkan unsur-unsur dominan
         if (calc.elements.length === 0) {
             pillsContainer.innerHTML = '<span style="color:var(--text3);font-size:.68rem">Tidak ada unsur terdeteksi.</span>';
         } else {
-            const topElements = calc.elements.slice(0, 4);
+            const topElements = calc.elements.filter(e => e.concentration > 0).slice(0, 4);
             let pillsHtml = topElements.map(el => {
-                const valList = el.values.map(v => v.toFixed(3)).join(' + ');
+                const vals = (el.positive_values && el.positive_values.length > 0) ? el.positive_values : el.values;
+                const valList = vals.map(v => v.toFixed(3)).join(' + ');
                 const formula = el.scans_count > 1 ? `(${valList}) / ${el.scans_count}` : `${valList}`;
+                const detInfo = el.scans_count < calc.scanCount ? ` (${el.scans_count} dari ${calc.scanCount} scan terdeteksi)` : '';
                 return `
-                <span class="xrf-avg-mini-pill" title="Perhitungan: ${formula} = ${el.concentration} ${el.unit}">
+                <span class="xrf-avg-mini-pill" title="Perhitungan: ${formula} = ${el.concentration} ${el.unit}${detInfo}">
                     <strong style="color:var(--gold)">${escapeHtml(el.element_name)}:</strong>
                     <span>${el.concentration}</span>
                     <span style="font-size:.62rem;color:var(--text3)">${el.unit}</span>
                 </span>`;
             }).join('');
 
-            if (calc.elements.length > 4) {
-                const moreCount = calc.elements.length - 4;
-                const remainingNames = calc.elements.slice(4).map(e => `${e.element_name}: ${e.concentration}${e.unit}`).join(', ');
+            const remaining = calc.elements.filter(e => e.concentration > 0).slice(4);
+            if (remaining.length > 0) {
+                const moreCount = remaining.length;
+                const remainingNames = remaining.map(e => `${e.element_name}: ${e.concentration}${e.unit}`).join(', ');
                 pillsHtml += `<span style="font-size:.65rem;color:var(--text3);cursor:help;padding:2px 4px" title="Unsur lainnya: ${remainingNames}">+${moreCount} unsur</span>`;
             }
             pillsContainer.innerHTML = pillsHtml;
@@ -1371,10 +1458,9 @@ function updateXrfAverageDrawer() {
     // Update Action Buttons inside Drawer
     const actBox = document.getElementById('xrfAverageActionBtns');
     if (actBox) {
-        const targetBtnLabel = targetParamName ? `🎯 Terapkan Rata-rata ${escapeHtml(targetParamName)} (${calc.scanCount} Scan)` : `✨ Terapkan Rata-rata (${calc.scanCount} Scan)`;
         actBox.innerHTML = `
-            <button type="button" class="btn btn-gold btn-sm" onclick="applySelectedXrfAverage('target_only')" style="font-weight:700;padding:4px 12px;font-size:.72rem">
-                ${targetBtnLabel}
+            <button type="button" class="btn btn-gold btn-sm" onclick="applySelectedXrfAverage('all')" style="font-weight:700;padding:4px 12px;font-size:.72rem">
+                ✨ Terapkan Rata-rata (${calc.scanCount} Scan)
             </button>
             <button type="button" class="btn btn-sm" onclick="clearXrfSelection()" style="background:var(--bg3);color:var(--text2);border:1px solid var(--border);padding:4px 8px;font-size:.72rem" title="Batal">✕</button>
         `;
@@ -1475,76 +1561,43 @@ function applyXrfDataToBatchRows(xrfData, rowIndex, mode = 'all') {
     const targetRow = document.getElementById(`ubr${rowIndex}`);
     if (!targetRow) return;
 
-    const selectSampel = targetRow.querySelector(`select[name="rows[${rowIndex}][sampel_id]"]`) || targetRow.querySelector(`input[name="rows[${rowIndex}][sampel_id]"]`);
-    const targetSampelId = selectSampel ? selectSampel.value : '';
-    const refInput = targetRow.querySelector(`input[name="rows[${rowIndex}][no_referensi]"]`) || targetRow.querySelector(`#ubr-refh-${rowIndex}`);
-    const batchRefVal = refInput ? refInput.value : '';
-
-    const pInput = targetRow.querySelector(`input[name="rows[${rowIndex}][parameter]"]`);
-    const nInput = targetRow.querySelector(`input[name="rows[${rowIndex}][nilai]"]`);
-    const sSelect = targetRow.querySelector(`select[name="rows[${rowIndex}][satuan]"]`);
-    const mSelect = targetRow.querySelector(`select[name="rows[${rowIndex}][metode]"]`);
-    const xHidden = targetRow.querySelector(`input[name="rows[${rowIndex}][xrf_id]"]`);
-    const btnXrf = targetRow.querySelector('.btn-outline-xrf');
-
-    const currentParam = pInput ? pInput.value.trim() : '';
-
-    // Jika baris ini sudah memiliki parameter tertentu (misal 'Au' di baris 1 atau 'Ag' di baris 2):
-    if (currentParam !== '') {
-        const matched = findMatchingXrfElement(xrfData.elements, currentParam);
-        const concentrationVal = matched ? matched.concentration : '0.0000';
-        
-        if (nInput) nInput.value = concentrationVal;
-        if (sSelect && matched && matched.unit) {
-            for (let opt of sSelect.options) {
-                if (opt.value.toLowerCase() === matched.unit.toLowerCase()) {
-                    sSelect.value = opt.value;
-                    break;
-                }
-            }
-        }
-        if (mSelect) mSelect.value = 'XRF';
-        if (xHidden) xHidden.value = xrfData.id;
-
-        if (btnXrf) {
-            btnXrf.classList.add('loaded');
-            if (xrfData.is_average) {
-                btnXrf.innerHTML = `⚡ Avg (${currentParam}: ${concentrationVal})`;
-                btnXrf.title = `Rata-rata ${xrfData.scan_count} scan. ${currentParam}: ${concentrationVal}`;
-            } else {
-                btnXrf.innerHTML = `⚡ ${escapeHtml(xrfData.sample_name)} (${currentParam}: ${concentrationVal})`;
-                btnXrf.title = `Scan: ${xrfData.sample_name}. ${currentParam}: ${concentrationVal}`;
-            }
-        }
-
-        updateUjiCount();
-        return;
-    }
-
-    // Jika parameter pada baris masih kosong, gunakan unsur yang terdeteksi
-    let elementsToApply = xrfData.elements || [];
-    if (elementsToApply.length === 0) {
-        alert('Tidak ada data unsur yang dapat dimuat dari scan XRF ini.');
-        return;
-    }
-
-    const firstEl = elementsToApply[0];
-    if (pInput) pInput.value = firstEl.element_name;
-    if (nInput) nInput.value = firstEl.concentration;
-    if (sSelect && firstEl.unit) {
-        for (let opt of sSelect.options) {
-            if (opt.value.toLowerCase() === firstEl.unit.toLowerCase()) {
-                sSelect.value = opt.value;
-                break;
-            }
-        }
-    }
-    if (mSelect) mSelect.value = 'XRF';
+    const xHidden = document.getElementById(`xrf-id-row-${rowIndex}`);
     if (xHidden) xHidden.value = xrfData.id;
+
+    const mSelect = document.getElementById(`metode-row-${rowIndex}`);
+    if (mSelect) mSelect.value = 'XRF';
+
+    const btnXrf = document.getElementById(`btn-xrf-row-${rowIndex}`);
+    let matchedSummary = [];
+
+    // Loop semua parameter aktif pada kolom horizontal tabel
+    activeTableParams.forEach(param => {
+        const matched = findMatchingXrfElement(xrfData.elements, param);
+        const valInput = document.getElementById(`val-row-${rowIndex}-${param}`);
+        if (valInput) {
+            // Hanya isi jika unsur terdeteksi pada scan XRF (konsentrasi > 0)
+            if (matched && parseFloat(matched.concentration) > 0) {
+                const val = matched.concentration;
+                valInput.value = val;
+                valInput.classList.add('highlight-updated');
+                setTimeout(() => valInput.classList.remove('highlight-updated'), 1500);
+                matchedSummary.push(`${param}: ${val}`);
+            } else {
+                // Biarkan KOSONG jika parameter tidak diuji atau tidak terdeteksi pada sampel ini
+                valInput.value = '';
+                valInput.placeholder = '—';
+                valInput.classList.remove('highlight-updated');
+            }
+        }
+    });
 
     if (btnXrf) {
         btnXrf.classList.add('loaded');
-        btnXrf.innerHTML = `⚡ ${escapeHtml(xrfData.sample_name)} (${firstEl.element_name}: ${firstEl.concentration})`;
+        const labelText = xrfData.is_average
+            ? `⚡ Avg (${xrfData.scan_count} Scan)`
+            : `⚡ ${escapeHtml(xrfData.sample_name)}`;
+        btnXrf.innerHTML = labelText;
+        btnXrf.title = `Scan: ${xrfData.sample_name} | Hasil: ${matchedSummary.join(', ') || 'Semua kolom terisi'}`;
     }
 
     updateUjiCount();
@@ -1598,27 +1651,157 @@ const woDetailMap = <?= json_encode(
 ) ?>;
 
 let ujiRowCnt = 0;
+let activeTableParams = ['Au', 'Ag']; // Default kolom unsur awal
+let currentGlobalUnit = '%';
 
-// ── Load dari WO: 1 baris per sampel sesuai urutan parameter WO ──
+function changeGlobalSatuan(val) {
+    currentGlobalUnit = val;
+    const subheader = document.getElementById('unitSubheaderText');
+    if (subheader) subheader.textContent = currentGlobalUnit;
+    document.querySelectorAll('#batchUjiRows input[name$="[satuan]"]').forEach(inp => {
+        inp.value = currentGlobalUnit;
+    });
+}
+
+function renderTableHeaders() {
+    const hRow1 = document.getElementById('batchHeaderRow1');
+    const hRow2 = document.getElementById('batchHeaderRow2');
+    if (!hRow1 || !hRow2) return;
+
+    // Header Baris 1: SAMPLE ID | DATA XRF | Parameter Unsur (1 per kolom) | METODE | KESIMPULAN | AKSI
+    let thCols = `
+        <th rowspan="2" style="padding:8px 10px;text-align:left;color:var(--gold);font-size:.76rem;font-weight:700;border:1px solid var(--border);min-width:180px">SAMPLE ID</th>
+        <th rowspan="2" style="padding:8px 8px;text-align:center;color:#60a5fa;font-size:.76rem;font-weight:700;border:1px solid var(--border);min-width:130px">DATA XRF</th>
+    `;
+
+    activeTableParams.forEach(p => {
+        thCols += `
+            <th class="th-param-col" data-param="${escapeHtml(p)}" style="padding:7px 8px;text-align:center;color:var(--gold);font-size:.8rem;font-weight:700;border:1px solid var(--border);min-width:85px">
+                <div style="display:flex;align-items:center;justify-content:center;gap:4px">
+                    <span>${escapeHtml(p)}</span>
+                    <span onclick="hapusKolomParameter('${escapeHtml(p)}')" style="cursor:pointer;color:var(--text3);font-size:.75rem;line-height:1" title="Hapus kolom ${escapeHtml(p)}">&times;</span>
+                </div>
+            </th>
+        `;
+    });
+
+    thCols += `
+        <th rowspan="2" style="padding:8px;text-align:center;color:var(--text3);font-size:.75rem;border:1px solid var(--border);width:95px">METODE</th>
+        <th rowspan="2" style="padding:8px;text-align:center;color:var(--text3);font-size:.75rem;border:1px solid var(--border);width:115px">REMARKS / KESIMPULAN</th>
+        <th rowspan="2" style="padding:8px;text-align:center;border:1px solid var(--border);width:36px"></th>
+    `;
+    hRow1.innerHTML = thCols;
+
+    // Header Baris 2: Sub-header "Unit (%)" yang membentang di bawah kolom parameter unsur (sesuai contoh gambar putih)
+    const paramCount = Math.max(1, activeTableParams.length);
+    hRow2.innerHTML = `
+        <th id="thUnitSubheader" colspan="${paramCount}" style="padding:4px;text-align:center;color:var(--text2);font-size:.72rem;background:rgba(255,255,255,0.03);border:1px solid var(--border);font-weight:600">
+            Unit (<span id="unitSubheaderText">${escapeHtml(currentGlobalUnit)}</span>)
+        </th>
+    `;
+
+    // Render tag badge di toolbar atas
+    const tagWrap = document.getElementById('paramTagsWrapper');
+    if (tagWrap) {
+        tagWrap.innerHTML = activeTableParams.map(p => `
+            <span class="param-col-badge">
+                <span>${escapeHtml(p)}</span>
+                <span class="param-col-remove" onclick="hapusKolomParameter('${escapeHtml(p)}')" title="Hapus kolom ${escapeHtml(p)}">&times;</span>
+            </span>
+        `).join('');
+    }
+
+    // Sinkronisasi kolom nilai pada baris-baris yang sudah ada
+    const allRows = document.querySelectorAll('#batchUjiRows tr[data-row-idx]');
+    allRows.forEach(tr => {
+        const rowIdx = tr.dataset.rowIdx;
+        const cellMetode = tr.querySelector('.td-metode');
+        
+        // Hapus kolom td yang parameternya sudah tidak aktif
+        tr.querySelectorAll('td[data-col-param]').forEach(td => {
+            const p = td.getAttribute('data-col-param');
+            if (!activeTableParams.includes(p)) {
+                td.remove();
+            }
+        });
+
+        // Tambah kolom td baru jika belum ada
+        activeTableParams.forEach(p => {
+            let td = tr.querySelector(`td[data-col-param="${p}"]`);
+            if (!td) {
+                const newTd = document.createElement('td');
+                newTd.setAttribute('data-col-param', p);
+                newTd.style.cssText = 'padding:4px 6px;text-align:center;border:1px solid var(--border)';
+                newTd.innerHTML = `<input type="number" step="any" name="rows[${rowIdx}][nilai][${p}]" id="val-row-${rowIdx}-${p}" placeholder="—" class="input-nilai-param" onchange="highlightFilledInput(this)"/>`;
+                if (cellMetode) {
+                    tr.insertBefore(newTd, cellMetode);
+                } else {
+                    tr.appendChild(newTd);
+                }
+            }
+        });
+    });
+
+    updateUjiCount();
+}
+
+function tambahKolomParameterManual() {
+    const input = document.getElementById('quickAddParamInput');
+    if (!input) return;
+    const val = input.value.trim().toUpperCase();
+    if (!val) return;
+
+    if (activeTableParams.includes(val)) {
+        alert(`Kolom parameter "${val}" sudah ada dalam tabel.`);
+        return;
+    }
+
+    activeTableParams.push(val);
+    input.value = '';
+    renderTableHeaders();
+}
+
+function hapusKolomParameter(paramName) {
+    if (activeTableParams.length <= 1) {
+        alert('Minimal harus ada 1 kolom parameter unsur.');
+        return;
+    }
+    activeTableParams = activeTableParams.filter(p => p !== paramName);
+    renderTableHeaders();
+}
+
 function loadBatchFromWo(sel) {
     currentBatchWoId = sel.value;
     document.getElementById('batchUjiRows').innerHTML = '';
     ujiRowCnt = 0;
 
     if (!currentBatchWoId) {
-        activeWoTargetParams = [];
-        updateUjiCount(); return;
+        activeTableParams = ['Au', 'Ag'];
+        renderTableHeaders();
+        tambahBarisSampel();
+        updateUjiCount();
+        return;
     }
 
     const wo = woDetailMap[currentBatchWoId];
     if (!wo) {
-        activeWoTargetParams = [];
-        updateUjiCount(); return;
+        activeTableParams = ['Au', 'Ag'];
+        renderTableHeaders();
+        tambahBarisSampel();
+        updateUjiCount();
+        return;
     }
 
-    const paramList  = wo.paramList.length ? wo.paramList : [];
-    activeWoTargetParams = paramList;
-    const sampelList = wo.sampelList;
+    const paramList = wo.paramList.length ? wo.paramList : [];
+    if (paramList.length > 0) {
+        activeTableParams = [...paramList];
+    } else {
+        activeTableParams = ['Au', 'Ag'];
+    }
+
+    renderTableHeaders();
+
+    const sampelList = wo.sampelList || [];
     const metode     = wo.metode || 'XRF';
     const ref        = wo.ref   || '';
 
@@ -1632,11 +1815,11 @@ function loadBatchFromWo(sel) {
             paramInfoBox.style.display = 'block';
             if (paramInfoText) {
                 paramInfoText.innerHTML = paramList.length > 0
-                    ? `Target Parameter: ` + paramList.map(p => `<span class="param-tag" style="margin-right:4px">${p}</span>`).join('')
+                    ? `Kolom Parameter: ` + paramList.map(p => `<span class="param-tag" style="margin-right:4px">${p}</span>`).join('')
                     : `<span style="color:var(--text3)">Semua Parameter XRF</span>`;
             }
             if (paramSummary) {
-                paramSummary.textContent = `${sampelList.length} Sampel termuat (${sampelList.length} baris). Klik "⚡ Pilih XRF" pada tiap baris untuk mengisi nilai parameter terkait.`;
+                paramSummary.textContent = `${sampelList.length} Sampel termuat. Parameter tersusun horizontal per kolom. Klik "⚡ Pilih XRF" pada tiap sampel untuk mengisi seluruh kolom sekaligus.`;
             }
         } else {
             paramInfoBox.style.display = 'none';
@@ -1645,28 +1828,20 @@ function loadBatchFromWo(sel) {
 
     if (!sampelList.length) {
         alert('Semua sampel dalam WO ini sudah memiliki hasil uji.');
-        updateUjiCount(); return;
+        tambahBarisSampel();
+        updateUjiCount();
+        return;
     }
 
-    // Buat 1 baris per sampel sesuai urutan parameter pada Work Order
-    sampelList.forEach((s, idx) => {
-        let assignedParam = '';
-        if (paramList.length > 0) {
-            if (idx < paramList.length) {
-                assignedParam = paramList[idx];
-            } else if (paramList.length === 1) {
-                assignedParam = paramList[0];
-            } else {
-                assignedParam = paramList[idx % paramList.length];
-            }
-        }
-        tambahBarisUji(s.id, ref, assignedParam, metode);
+    // Buat 1 baris per sampel (semua parameter terpasang horizontal sejajar)
+    sampelList.forEach(s => {
+        tambahBarisSampel(s.id, s.label_lengkap, ref, metode);
     });
 
     updateUjiCount();
 }
 
-function tambahBarisUji(sampelId='', batchRef='', paramDef='', metodeDef='', insertAfterEl=null, isChildOf=null) {
+function tambahBarisSampel(sampelId='', sampleLabel='', batchRef='', metodeDef='XRF') {
     ujiRowCnt++;
     const i = ujiRowCnt;
     const sOpts = sampelOpts.map(s =>
@@ -1675,75 +1850,115 @@ function tambahBarisUji(sampelId='', batchRef='', paramDef='', metodeDef='', ins
     const mOpts = metOpts.map(m =>
         `<option ${m===metodeDef?'selected':''}>${m}</option>`
     ).join('');
-    const satO  = satOpts.map(s => `<option>${s}</option>`).join('');
 
-    let selectedSampleLabel = '';
-    if (sampelId) {
+    let selectedSampleLabel = sampleLabel;
+    if (sampelId && !selectedSampleLabel) {
         const found = sampelOpts.find(s => String(s.id) === String(sampelId));
         if (found) selectedSampleLabel = found.label;
     }
 
-    const rowHtml = `<tr id="ubr${i}" ${isChildOf ? `data-xrf-parent="${isChildOf}" style="background:rgba(232,180,0,0.02)"` : ''}>
+    // Bangun sel-sel parameter secara horizontal
+    let paramCells = '';
+    activeTableParams.forEach(p => {
+        paramCells += `
+            <td data-col-param="${escapeHtml(p)}" style="padding:4px 6px;text-align:center;border:1px solid var(--border)">
+                <input type="number" step="any" name="rows[${i}][nilai][${escapeHtml(p)}]" id="val-row-${i}-${escapeHtml(p)}" placeholder="—" class="input-nilai-param" onchange="highlightFilledInput(this)"/>
+            </td>
+        `;
+    });
+
+    const rowHtml = `
+    <tr id="ubr${i}" data-row-idx="${i}">
         <input type="hidden" name="rows[${i}][no_referensi]" id="ubr-refh-${i}" value="${batchRef}"/>
-        <td style="padding:4px">
-            ${isChildOf ? `
+        <input type="hidden" name="rows[${i}][satuan]" id="ubr-sat-${i}" value="${currentGlobalUnit}"/>
+        <input type="hidden" name="rows[${i}][xrf_id]" id="xrf-id-row-${i}" value=""/>
+
+        <td style="padding:6px 8px;border:1px solid var(--border)">
+            ${sampelId ? `
                 <input type="hidden" name="rows[${i}][sampel_id]" value="${sampelId}"/>
-                <div style="display:flex;align-items:center;gap:5px;font-size:.73rem;color:var(--text2);padding:4px 6px">
-                    <span style="color:var(--gold);font-weight:bold;font-size:.85rem">↳</span>
-                    <span style="opacity:.85;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:160px" title="${escapeHtml(selectedSampleLabel)}">${escapeHtml(selectedSampleLabel || 'Sampel')}</span>
-                </div>
+                <div style="font-weight:700;color:var(--gold);font-size:.82rem">${escapeHtml(selectedSampleLabel || 'Sampel #' + i)}</div>
+                ${batchRef ? `<div style="font-size:.66rem;color:var(--text3);margin-top:2px">Ref: ${escapeHtml(batchRef)}</div>` : ''}
             ` : `
-                <select name="rows[${i}][sampel_id]" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:4px 6px;border-radius:4px;font-size:.75rem;width:180px">
+                <select name="rows[${i}][sampel_id]" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:5px 7px;border-radius:4px;font-size:.76rem;width:100%" onchange="onRowSampleChange(${i}, this)">
                     <option value="">— Pilih Sampel —</option>${sOpts}
                 </select>
             `}
-         </td>
-        <td style="padding:4px">
-            ${isChildOf ? `
-                <div style="font-size:.68rem;color:var(--text3);padding:4px 6px;display:flex;align-items:center;gap:4px">
-                    <span style="color:var(--gold);opacity:.7">↳</span> <span style="opacity:.7">Unsur XRF</span>
-                </div>
-                <input type="hidden" name="rows[${i}][xrf_id]" id="xrf-id-row-${i}" value=""/>
-            ` : `
-                <button type="button" id="btn-xrf-row-${i}" class="btn-outline-xrf" onclick="openXrfPickerModal(${i})" title="Klik untuk membuka pop-up pemilih data XRF">
-                    ⚡ Pilih XRF
-                </button>
-                <input type="hidden" name="rows[${i}][xrf_id]" id="xrf-id-row-${i}" value=""/>
-            `}
-         </td>
-        <td style="padding:4px"><input name="rows[${i}][parameter]" value="${paramDef}" placeholder="Au, Fe..." style="background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:4px 6px;border-radius:4px;font-size:.75rem;width:90px;${isChildOf ? 'border-left:3px solid var(--gold);' : ''}"/></td>
-        <td style="padding:4px"><input type="number" step="any" name="rows[${i}][nilai]" placeholder="0.0000" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:4px 6px;border-radius:4px;font-size:.75rem;width:80px"/></td>
-        <td style="padding:4px"><select name="rows[${i}][satuan]" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:4px 6px;border-radius:4px;font-size:.75rem">${satO}</select></td>
-        <td style="padding:4px">
-            <select name="rows[${i}][metode]" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:4px 6px;border-radius:4px;font-size:.75rem">
+        </td>
+
+        <td style="padding:6px;text-align:center;white-space:nowrap;border:1px solid var(--border)">
+            <button type="button" id="btn-xrf-row-${i}" class="btn-outline-xrf" onclick="openXrfPickerModal(${i})" title="Klik untuk membuka pemilih data scan XRF" style="width:100%;justify-content:center">
+                ⚡ Pilih XRF
+            </button>
+        </td>
+
+        ${paramCells}
+
+        <td class="td-metode" style="padding:4px 6px;border:1px solid var(--border)">
+            <select name="rows[${i}][metode]" id="metode-row-${i}" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:5px 6px;border-radius:4px;font-size:.75rem;width:100%">
                 ${mOpts}
             </select>
         </td>
-        <td style="padding:4px">
-            <select name="rows[${i}][kesimpulan]" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:4px 6px;border-radius:4px;font-size:.75rem">
+
+        <td class="td-kesimpulan" style="padding:4px 6px;border:1px solid var(--border)">
+            <select name="rows[${i}][kesimpulan]" style="background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:5px 6px;border-radius:4px;font-size:.75rem;width:100%">
                 <option value="pending" selected>Pending</option>
                 <option value="lulus">Lulus</option>
                 <option value="tidak_lulus">Tidak Lulus</option>
             </select>
         </td>
-        <td style="padding:4px">
-            <button type="button" onclick="${isChildOf ? `document.getElementById('ubr${i}').remove();updateUjiCount()` : `document.querySelectorAll('tr[data-xrf-parent=\\'ubr${i}\\']').forEach(e=>e.remove());document.getElementById('ubr${i}').remove();updateUjiCount()`}"
-               style="background:var(--red);color:#fff;border:none;border-radius:4px;padding:3px 8px;cursor:pointer;font-size:.7rem" title="Hapus baris">&#10005;</button>
+
+        <td style="padding:4px;text-align:center;border:1px solid var(--border)">
+            <button type="button" onclick="hapusBarisSampel(${i})" style="background:var(--red);color:#fff;border:none;border-radius:4px;padding:4px 8px;cursor:pointer;font-size:.7rem" title="Hapus sampel ini">&#10005;</button>
         </td>
-     </tr>`;
+    </tr>`;
 
-    if (insertAfterEl && insertAfterEl.parentNode) {
-        insertAfterEl.insertAdjacentHTML('afterend', rowHtml);
-    } else {
-        document.getElementById('batchUjiRows').insertAdjacentHTML('beforeend', rowHtml);
-    }
-
+    document.getElementById('batchUjiRows').insertAdjacentHTML('beforeend', rowHtml);
+    updateUjiCount();
     return i;
 }
 
+// Alias untuk kompatibilitas
+function tambahBarisUji(sampelId='', batchRef='', paramDef='', metodeDef='') {
+    return tambahBarisSampel(sampelId, '', batchRef, metodeDef);
+}
+
+function hapusBarisSampel(rowIndex) {
+    const tr = document.getElementById(`ubr${rowIndex}`);
+    if (tr) tr.remove();
+    updateUjiCount();
+}
+
+function onRowSampleChange(rowIndex, selectEl) {
+    const tr = document.getElementById(`ubr${rowIndex}`);
+    if (!tr) return;
+    const opt = selectEl.options[selectEl.selectedIndex];
+    const batch = opt ? (opt.dataset.batch || '') : '';
+    const refInput = document.getElementById(`ubr-refh-${rowIndex}`);
+    if (refInput) refInput.value = batch;
+}
+
+function highlightFilledInput(inputEl) {
+    if (inputEl.value.trim() !== '') {
+        inputEl.style.borderColor = 'var(--gold)';
+    } else {
+        inputEl.style.borderColor = 'var(--border)';
+    }
+    updateUjiCount();
+}
+
 function updateUjiCount() {
-    document.getElementById('totalUjiBatch').textContent =
-        document.getElementById('batchUjiRows').querySelectorAll('tr').length;
+    const rows = document.querySelectorAll('#batchUjiRows tr[data-row-idx]');
+    const totalSampel = rows.length;
+    let filledParamsCount = 0;
+    rows.forEach(tr => {
+        tr.querySelectorAll('.input-nilai-param').forEach(inp => {
+            if (inp.value.trim() !== '') filledParamsCount++;
+        });
+    });
+    const elS = document.getElementById('totalSampelBatch');
+    if (elS) elS.textContent = totalSampel;
+    const elU = document.getElementById('totalUjiBatch');
+    if (elU) elU.textContent = filledParamsCount;
 }
 
 // ── EDIT HASIL UJI ────────────────────────────────────────────
@@ -1780,8 +1995,9 @@ function closeEditModal() {
     document.getElementById('editModal').style.display = 'none';
 }
 
-// Auto 1 baris kosong saat pertama load
-tambahBarisUji();
+// Inisialisasi tabel horizontal saat pertama load
+renderTableHeaders();
+tambahBarisSampel();
 
 // Tutup modal jika klik di luar
 document.addEventListener('DOMContentLoaded', function() {
