@@ -4,7 +4,9 @@
  * Path: /pages/xrf_dashboard.php (or /xrf_dashboard.php)
  */
 
-$log_file = __DIR__ . '/xrf_connection_log.json';
+$log_file = file_exists(__DIR__ . '/../api/xrf_connection_log.json') 
+    ? __DIR__ . '/../api/xrf_connection_log.json' 
+    : __DIR__ . '/xrf_connection_log.json';
 $connection_logs = [];
 
 if (file_exists($log_file)) {

@@ -69,6 +69,16 @@ if (-not (Test-Path $migrationFile)) {
 Write-Host "Menjalankan migrasi database konsolidasi (database_latest.sql)..."
 Invoke-SqlFile -FilePath $migrationFile -MysqlArgs $mysqlArgs
 
+$xrfDumpFile = Join-Path $projectRoot "scripts/sql/xrf_data_dump.sql"
+if (Test-Path $xrfDumpFile) {
+    $xrfTableExists = & $mysqlExe @mysqlArgs -D $Database -N -e "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='$Database' AND table_name='xrf_measurements';" 2>$null
+    $hasXrfTable = if ($null -eq $xrfTableExists) { "0" } else { "$xrfTableExists".Trim() }
+    if ($hasXrfTable -eq "0") {
+        Write-Host "Mengimpor skema & data XRF (xrf_data_dump.sql)..."
+        Invoke-SqlFile -FilePath $xrfDumpFile -MysqlArgs $mysqlArgs
+    }
+}
+
 Write-Host "`n==> Verifikasi akhir"
 & $mysqlExe @mysqlArgs -D $Database -e @"
 SELECT 'pengguna' AS tabel, COUNT(*) AS total FROM pengguna
@@ -85,7 +95,9 @@ SELECT 'preparasi_sampel', COUNT(*) FROM preparasi_sampel
 UNION ALL
 SELECT 'qc_sampel', COUNT(*) FROM qc_sampel
 UNION ALL
-SELECT 'invoice', COUNT(*) FROM invoice;
+SELECT 'invoice', COUNT(*) FROM invoice
+UNION ALL
+SELECT 'xrf_measurements', COUNT(*) FROM xrf_measurements;
 "@
 
 if ($LASTEXITCODE -ne 0) {

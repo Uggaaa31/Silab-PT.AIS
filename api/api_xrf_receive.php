@@ -73,7 +73,7 @@ if (!empty(XRF_SECRET_KEY) && $provided_key !== XRF_SECRET_KEY) {
 }
 
 // 3. Extract Payload Metadata
-$device_id       = !empty($data['device_id']) ? trim($data['device_id']) : 'XRF04';
+$device_id       = !empty($data['device_id']) ? trim($data['device_id']) : 'XRF02';
 $db_source       = $data['db_source'] ?? 'connection_test';
 $report_id       = intval($data['report_id'] ?? 0);
 $sample_name     = trim($data['sample_name'] ?? 'PING_TEST');
@@ -165,15 +165,21 @@ try {
         ON DUPLICATE KEY UPDATE last_seen_at = NOW(), device_type = IF(VALUES(device_type) != '', VALUES(device_type), device_type)");
     $dev_stmt->execute([$device_id, 'Alat XRF - ' . $device_id, $device_type ?: 'XRF Explorer']);
     
-    // Stop processing if this is just a heartbeat ping
-    if ($db_source === 'ping') {
+    // Stop processing if this is just a heartbeat ping or test ping
+    if ($db_source === 'ping' || $db_source === 'ping_test' || $db_source === 'connection_test' || stripos($sample_name, 'PING') !== false) {
         $db->commit();
         echo json_encode([
             'status'  => 'success',
-            'mode'    => 'heartbeat',
-            'message' => 'Heartbeat received, device status updated.'
+            'mode'    => 'ping_test',
+            'message' => 'Ping connection test successful! Device ' . htmlspecialchars($device_id) . ' is connected and online.'
         ], JSON_PRETTY_PRINT);
         exit;
+    }
+
+    // Sanitize db_source to conform to table enum
+    $valid_db_sources = ['metal.db', 'alloy.db', 'mineral.db', 'unknown'];
+    if (!in_array($db_source, $valid_db_sources)) {
+        $db_source = 'unknown';
     }
 
     $test_date_val = !empty($data['test_date']) ? $data['test_date'] : date('Y-m-d H:i:s');

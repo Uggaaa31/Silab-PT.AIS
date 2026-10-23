@@ -116,7 +116,7 @@ try {
 
             $data[] = [
                 'id'               => (int)$r['id'],
-                'device_id'        => !empty($r['device_id']) ? $r['device_id'] : 'XRF04',
+                'device_id'        => !empty($r['device_id']) ? $r['device_id'] : 'XRF02',
                 'db_source'        => $r['db_source'],
                 'report_id'        => (int)$r['report_id'],
                 'sample_name'      => $r['sample_name'] ?: 'Tanpa Nama',
